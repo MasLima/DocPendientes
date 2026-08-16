@@ -1,19 +1,85 @@
 const router = require('express').Router();
 const pool = require('../config/db');
 
-// Incidencias del vendedor autenticado, con detalle del cliente
+// ============================================================
+// INCIDENCIAS
+// - 'incidencias.ver_todas' (admin/empleado) => ve las de todos.
+// - Sin el permiso (vendedor) => solo las propias (use_emno).
+// - Se puede crear ligada a un cliente (ter_cote) o independiente.
+// ============================================================
+
+// Historial de incidencias
+// GET /api/incidencias?cliente=XXXX  (opcional filtrar por cliente)
+// GET /api/incidencias?independientes=1 (solo sin cliente)
 router.get('/', async (req, res) => {
   try {
+    const puedeTodas = req.user.permisos && req.user.permisos.includes('incidencias.ver_todas');
+    const params = [];
+    let where = '1=1';
+
+    if (!puedeTodas) {
+      where += ' AND i.use_emno = ?';
+      params.push(req.user.ter_cote);
+    }
+    if (req.query.cliente) {
+      where += ' AND i.ter_cote = ?';
+      params.push(req.query.cliente);
+    }
+    if (req.query.independientes === '1') {
+      where += ' AND i.ter_cote IS NULL';
+    } else if (!req.query.cliente) {
+      where += ' AND i.ter_cote IS NOT NULL';
+    }
+
     const [rows] = await pool.query(
-      `SELECT i.inc_codi, i.inc_codi_erp, i.ter_cote, c.ter_deno AS cliente_nombre,
+      `SELECT i.inc_codi, i.inc_codi_erp, i.ter_cote,
+              c.ter_deno AS cliente_nombre,
+              i.use_emno, v.ter_deno AS vendedor_nombre,
               i.inc_cont, i.inc_desc, i.inc_acci,
               i.fe_regi, i.fe_aten, i.fe_resu, i.inc_esta, i.inc_estc,
               i.sincronizada
        FROM incidencias i
        LEFT JOIN clientes c ON c.ter_cote = i.ter_cote
-       WHERE i.use_emno = ?
-       ORDER BY i.fe_regi DESC`,
-      [req.user.ter_cote]
+       LEFT JOIN vendedores v ON v.ter_cote = i.use_emno
+       WHERE ${where}
+       ORDER BY i.fe_regi DESC, i.inc_codi DESC
+       LIMIT 500`,
+      params
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Frecuencia de visitas / resumen por cliente
+// GET /api/incidencias/frecuencia
+router.get('/frecuencia', async (req, res) => {
+  try {
+    const puedeTodas = req.user.permisos && req.user.permisos.includes('incidencias.ver_todas');
+    const params = [];
+    let sql = '';
+    if (!puedeTodas) {
+      sql = ' AND i.use_emno = ? ';
+      params.push(req.user.ter_cote);
+    }
+
+    const [rows] = await pool.query(
+      `SELECT i.ter_cote,
+              c.ter_deno AS cliente_nombre,
+              COUNT(*) AS total_visitas,
+              MAX(i.fe_regi) AS ultima_visita,
+              MIN(i.fe_regi) AS primera_visita,
+              DATEDIFF(CURDATE(), MAX(i.fe_regi)) AS dias_desde_ultima,
+              ROUND(DATEDIFF(MAX(i.fe_regi), MIN(i.fe_regi)) / GREATEST(COUNT(*) - 1, 1)) AS promedio_dias_entre_visitas,
+              SUM(CASE WHEN i.fe_regi >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS visitas_ultimos_30
+       FROM incidencias i
+       LEFT JOIN clientes c ON c.ter_cote = i.ter_cote
+       WHERE i.ter_cote IS NOT NULL ${sql}
+       GROUP BY i.ter_cote, c.ter_deno
+       ORDER BY ultima_visita DESC`,
+      params
     );
     res.json(rows);
   } catch (err) {
@@ -71,11 +137,15 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Registrar nueva incidencia (queda pendiente de envio al ERP, sincronizada=0)
+// Registrar nueva incidencia.
+// - Ligada a cliente: { ter_cote, inc_desc, ... }
+// - Independiente: omitir ter_cote (solo inc_desc).
+// Queda pendiente de envio al ERP (sincronizada=0) o se marca como
+// local (no tiene inc_codi_erp).
 router.post('/', async (req, res) => {
   const { ter_cote, inc_cont, inc_desc, inc_acci, fe_aten } = req.body;
-  if (!ter_cote || !inc_desc) {
-    return res.status(400).json({ error: 'Se requiere ter_cote y inc_desc' });
+  if (!inc_desc) {
+    return res.status(400).json({ error: 'Se requiere inc_desc' });
   }
 
   const conexion = await pool.getConnection();
@@ -87,7 +157,7 @@ router.post('/', async (req, res) => {
          (ter_cote, use_emno, inc_cont, inc_desc, inc_acci,
           fe_regi, fe_aten, inc_esta, inc_estc, sincronizada)
        VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 1, 1, 0)`,
-      [ter_cote, req.user.ter_cote, inc_cont || null, inc_desc, inc_acci || null, fe_aten || null]
+      [ter_cote || null, req.user.ter_cote, inc_cont || null, inc_desc, inc_acci || null, fe_aten || null]
     );
 
     await conexion.commit();

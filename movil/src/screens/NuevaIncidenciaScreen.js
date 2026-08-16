@@ -16,14 +16,14 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
   const [guardando, setGuardando] = useState(false);
 
   const guardar = async () => {
-    if (!cliente || !descripcion.trim()) {
-      Alert.alert('Campos requeridos', 'Cliente y descripción son obligatorios');
+    if (!descripcion.trim()) {
+      Alert.alert('Campos requeridos', 'La descripción es obligatoria');
       return;
     }
     setGuardando(true);
     try {
       await apiPost('/incidencias', {
-        ter_cote: cliente,
+        ter_cote: cliente || null,
         inc_desc: descripcion.trim(),
         inc_acci: accion.trim()
       }, token);

@@ -1,0 +1,211 @@
+const erp = require('../config/erp');
+const app = require('../config/db');
+
+// Estados del ERP que cuentan como cobro/pago VALIDO (mficob200.cob_stat).
+//   90 CERRADO  10 EMITIDO  18 EN DESCUENTO   (80 ANULADO no cuenta)
+const ESTADOS_PAGO_VALIDOS = ['10', '18', '90'];
+
+// Estados del documento (mficob100.cob_stat) que NO son pendientes
+const ESTADOS_DOC_EXCLUIDOS = ['80', '86', '90'];
+
+// Mapeo de codigos de moneda ERP -> codigos de la app
+const MONEDAS = { PEN: 'PEN', USD: 'USD', U2: 'USD', D2: 'USD', EUR: 'EUR' };
+
+async function logSync(proceso, filas, resultado = 'OK', detalle = null) {
+  await app.query(
+    `INSERT INTO sync_log (proceso, fecha, filas, resultado, detalle)
+     VALUES (?, NOW(), ?, ?, ?)`,
+    [proceso, filas, resultado, detalle]
+  );
+}
+
+async function syncMaestros() {
+  // ---------- VENDEDORES ----------
+  const [vendedores] = await erp.query(
+    `SELECT t.ter_cote, t.ter_deno, t.ter_stat, t.ter_date,
+            u.use_logi
+     FROM mplter001 t
+     LEFT JOIN mtguse001 u ON u.use_emno = t.ter_cote
+     WHERE t.ter_tite = '300000'`
+  );
+
+  for (const v of vendedores) {
+    await app.query(
+      `REPLACE INTO vendedores (ter_cote, ter_deno, use_logi, ter_stat, ter_date, ultima_sync)
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [v.ter_cote, v.ter_deno, v.use_logi || null, v.ter_stat, v.ter_date]
+    );
+  }
+
+  // ---------- CLIENTES ----------
+  const [clientes] = await erp.query(
+    `SELECT t.ter_cote, t.ter_deno, t.ter_dire, t.ter_rucn, t.ter_fono,
+            t.ter_cell, t.ter_emai, t.ter_core, t.ter_cocp, t.ter_licr,
+            t.ter_stat, t.ter_cozo
+     FROM mplter001 t
+     WHERE t.ter_tite = '100000'`
+  );
+
+  for (const c of clientes) {
+    await app.query(
+      `REPLACE INTO clientes
+         (ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell,
+          ter_emai, ter_core, ter_cocp, ter_licr, ter_stat, ter_cozo, ultima_sync)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [c.ter_cote, c.ter_deno, c.ter_dire, c.ter_rucn, c.ter_fono,
+       c.ter_cell, c.ter_emai, c.ter_core, c.ter_cocp, c.ter_licr,
+       c.ter_stat, c.ter_cozo]
+    );
+  }
+
+  await logSync('MAESTROS', vendedores.length + clientes.length,
+    'OK', `vend=${vendedores.length} cli=${clientes.length}`);
+
+  return { vendedores: vendedores.length, clientes: clientes.length };
+}
+
+async function syncDocumentos() {
+  const placeholders = ESTADOS_PAGO_VALIDOS.map(() => '?').join(',');
+  const excl = ESTADOS_DOC_EXCLUIDOS.map(() => '?').join(',');
+
+  const [docs] = await erp.query(
+    `SELECT
+       d.cob_tivo,
+       d.cob_nuvo,
+       d.cob_codo,
+       d.cob_seri,
+       d.cob_nums,
+       d.cob_cote,
+       d.cob_feem,
+       d.cob_feve,
+       d.cob_como,
+       d.cob_core,
+       d.cob_cocp,
+       d.cob_stat,
+       d.doc_impo,
+       d.cob_impo,
+       d.cob_imps,
+       d.cob_impd,
+       COALESCE(SUM(p.cob_impc), 0) AS pagado
+     FROM mficob100 d
+     LEFT JOIN mficob200 p
+       ON p.cob_tivo = d.cob_tivo
+      AND p.cob_nuvo = d.cob_nuvo
+      AND p.cob_stat IN (${placeholders})
+     WHERE d.cob_stat NOT IN (${excl})
+     GROUP BY d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums,
+              d.cob_cote, d.cob_feem, d.cob_feve, d.cob_como, d.cob_core,
+              d.cob_cocp, d.cob_stat, d.doc_impo, d.cob_impo, d.cob_imps, d.cob_impd
+     HAVING (d.cob_impo - COALESCE(SUM(p.cob_impc), 0)) > 0.01`,
+    [...ESTADOS_PAGO_VALIDOS, ...ESTADOS_DOC_EXCLUIDOS]
+  );
+
+  await app.query('DELETE FROM documentos');
+  await app.query('ALTER TABLE documentos AUTO_INCREMENT = 1');
+
+  let insertados = 0;
+  for (const d of docs) {
+    const monedaApp = MONEDAS[d.cob_como] || d.cob_como;
+    const pagado = Number(d.pagado) || 0;
+    const saldo = (Number(d.cob_impo) || 0) - pagado;
+    if (saldo <= 0.01) continue;
+
+    await app.query(
+      `INSERT INTO documentos
+         (cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums, cob_cote,
+          cob_feem, cob_feve, cob_como, cob_core, cob_cocp, cob_stat,
+          doc_impo, cob_impo, cob_imps, cob_impd, pagado, saldo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums,
+       d.cob_cote, d.cob_feem, d.cob_feve, monedaApp, d.cob_core,
+       d.cob_cocp, d.cob_stat, d.doc_impo, d.cob_impo, d.cob_imps,
+       d.cob_impd, pagado, Number(saldo.toFixed(2))]
+    );
+    insertados++;
+  }
+
+  await logSync('DOCUMENTOS', insertados);
+
+  return { documentos: insertados };
+}
+
+// Descarga de incidencias desde el ERP (mcoinci010 + mcoinci020).
+// Solo lectura en el ERP; se insertan/actualizan en la BD local.
+// La identidad es inc_codi del ERP -> incidencias.inc_codi_erp (unico).
+async function syncIncidencias() {
+  const [inc] = await erp.query(
+    `SELECT inc_codi, ter_cote, use_emno, inc_cont, inc_desc,
+            fe_regi, fe_aten, fe_resu, inc_esta, inc_estc
+     FROM mcoinci010`
+  );
+
+  // Traer todo el detalle de una vez (mcoinci020)
+  const [det] = await erp.query(
+    `SELECT inc_codi, inc_nro, inc_desc, inc_resp, inc_stat
+     FROM mcoinci020`
+  );
+  const detByInc = new Map();
+  for (const d of det) {
+    if (!detByInc.has(d.inc_codi)) detByInc.set(d.inc_codi, []);
+    detByInc.get(d.inc_codi).push(d);
+  }
+
+  let insertados = 0;
+  let actualizados = 0;
+
+  for (const r of inc) {
+    const exist = await app.query(
+      'SELECT inc_codi FROM incidencias WHERE inc_codi_erp = ?',
+      [r.inc_codi]
+    );
+
+    if (exist[0].length > 0) {
+      await app.query(
+        `UPDATE incidencias
+            SET ter_cote = ?, use_emno = ?, inc_cont = ?, inc_desc = ?,
+                fe_regi = ?, fe_aten = ?, fe_resu = ?, inc_esta = ?,
+                inc_estc = ?, sincronizada = 1, ultima_sync = NOW()
+          WHERE inc_codi_erp = ?`,
+        [r.ter_cote, r.use_emno, r.inc_cont, r.inc_desc,
+         r.fe_regi, r.fe_aten, r.fe_resu, r.inc_esta, r.inc_estc, r.inc_codi]
+      );
+      actualizados++;
+    } else {
+      const [res] = await app.query(
+        `INSERT INTO incidencias
+           (inc_codi_erp, ter_cote, use_emno, inc_cont, inc_desc,
+            fe_regi, fe_aten, fe_resu, inc_esta, inc_estc,
+            sincronizada, ultima_sync)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
+        [r.inc_codi, r.ter_cote, r.use_emno, r.inc_cont, r.inc_desc,
+         r.fe_regi, r.fe_aten, r.fe_resu, r.inc_esta, r.inc_estc]
+      );
+      insertados++;
+      // Copiar el detalle (mcoinci020) de esta incidencia
+      const detalles = detByInc.get(r.inc_codi) || [];
+      for (const dd of detalles) {
+        await app.query(
+          `INSERT INTO incidencia_detalle (inc_codi, inc_nro, inc_desc, inc_resp, inc_stat)
+           VALUES (?, ?, ?, ?, ?)`,
+          [res.insertId, dd.inc_nro, dd.inc_desc, dd.inc_resp, dd.inc_stat]
+        );
+      }
+    }
+  }
+
+  await logSync('INCIDENCIAS', insertados + actualizados,
+    'OK', `nuevas=${insertados} actualizadas=${actualizados}`);
+
+  return { incidencias: insertados, actualizadas: actualizados };
+}
+
+// Sincronizacion completa: maestros + documentos + incidencias
+async function syncCompleto() {
+  const resultados = {};
+  resultados.maestros = await syncMaestros();
+  resultados.documentos = await syncDocumentos();
+  resultados.incidencias = await syncIncidencias();
+  return resultados;
+}
+
+module.exports = { syncMaestros, syncDocumentos, syncIncidencias, syncCompleto };

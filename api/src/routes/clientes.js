@@ -1,16 +1,25 @@
 const router = require('express').Router();
 const pool = require('../config/db');
 
-// Lista de clientes del vendedor autenticado (por ter_core)
+// Lista de clientes.
+// - Con permiso 'clientes.ver_todos' (admin/empleado): todos.
+// - Sin el permiso (vendedor): solo los de su cartera (ter_core).
 router.get('/', async (req, res) => {
   try {
+    const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
+    const params = [];
+    let sql = '';
+    if (!puedeTodos) {
+      sql = 'WHERE ter_core = ?';
+      params.push(req.user.ter_cote);
+    }
     const [rows] = await pool.query(
       `SELECT ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell, ter_emai,
               ter_cocp, ter_licr, ter_cozo
        FROM clientes
-       WHERE ter_core = ?
+       ${sql}
        ORDER BY ter_deno`,
-      [req.user.ter_cote]
+      params
     );
     res.json(rows);
   } catch (err) {

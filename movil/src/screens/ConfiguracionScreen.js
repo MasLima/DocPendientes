@@ -1,0 +1,352 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, Switch, FlatList
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../context/AuthContext';
+import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
+
+export default function ConfiguracionScreen() {
+  const { token, user } = useAuth();
+  const [pestana, setPestana] = useState('sync');
+
+  const puede = (p) => (user.permisos || []).includes(p);
+  const puedeSync = puede('sync.ejecutar') || puede('sync.ver_log');
+  const puedeUsuarios = puede('config.usuarios');
+
+  if (!puedeSync && !puedeUsuarios) {
+    return <View style={styles.center}><Text style={styles.vacio}>No tienes acceso a configuración</Text></View>;
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.tabs}>
+        {puedeSync && (
+          <TouchableOpacity style={[styles.tab, pestana === 'sync' && styles.tabActiva]} onPress={() => setPestana('sync')}>
+            <Text style={[styles.tabText, pestana === 'sync' && styles.tabTextActiva]}>Sincronización</Text>
+          </TouchableOpacity>
+        )}
+        {puedeUsuarios && (
+          <TouchableOpacity style={[styles.tab, pestana === 'usuarios' && styles.tabActiva]} onPress={() => setPestana('usuarios')}>
+            <Text style={[styles.tabText, pestana === 'usuarios' && styles.tabTextActiva]}>Usuarios</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {pestana === 'sync' ? <SyncTab token={token} /> : <UsuariosTab token={token} />}
+    </View>
+  );
+}
+
+// ============ SINCRONIZACION ============
+function SyncTab({ token }) {
+  const [ejecutando, setEjecutando] = useState(false);
+  const [log, setLog] = useState([]);
+
+  const cargarLog = useCallback(async () => {
+    try {
+      const data = await apiGet('/sync/log', token);
+      setLog(Array.isArray(data) ? data : data.value || []);
+    } catch (e) { /* sin permiso o error */ }
+  }, [token]);
+
+  useFocusEffect(
+    useCallback(() => { cargarLog(); }, [cargarLog])
+  );
+
+  const ejecutarSync = async () => {
+    setEjecutando(true);
+    try {
+      const r = await apiPost('/sync/ejecutar', {}, token);
+      Alert.alert('Sync completado',
+        `Vendedores: ${r.resultados?.maestros?.vendedores}\n` +
+        `Clientes: ${r.resultados?.maestros?.clientes}\n` +
+        `Documentos pendientes: ${r.resultados?.documentos?.documentos}\n` +
+        `Incidencias nuevas: ${r.resultados?.incidencias?.incidencias}\n` +
+        `Incidencias actualizadas: ${r.resultados?.incidencias?.actualizadas}`);
+      cargarLog();
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setEjecutando(false);
+    }
+  };
+
+  return (
+    <ScrollView style={styles.panel}>
+      <Text style={styles.parrafo}>
+        Sincroniza los datos desde el ERP: maestros (vendedores y clientes),
+        documentos pendientes e incidencias. Puedes ejecutarla en cualquier
+        momento, además de la programada.
+      </Text>
+
+      <TouchableOpacity
+        style={[styles.btnPrincipal, ejecutando && styles.btnDisabled]}
+        onPress={ejecutarSync}
+        disabled={ejecutando}
+      >
+        <Text style={styles.btnPrincipalText}>
+          {ejecutando ? 'Sincronizando...' : 'Ejecutar sincronización ahora'}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.subtitulo}>Historial de sincronizaciones</Text>
+      {log.length === 0 ? (
+        <Text style={styles.vacio}>Sin registros</Text>
+      ) : (
+        log.slice(0, 15).map((l) => (
+          <View key={l.id} style={styles.logItem}>
+            <View style={styles.logRow}>
+              <Text style={styles.logProc}>{l.proceso}</Text>
+              <Text style={[styles.logRes, l.resultado === 'OK' ? styles.ok : styles.error]}>
+                {l.resultado}
+              </Text>
+            </View>
+            <Text style={styles.logDet}>{l.fecha} | filas: {l.filas} {l.detalle ? `| ${l.detalle}` : ''}</Text>
+          </View>
+        ))
+      )}
+    </ScrollView>
+  );
+}
+
+// ============ USUARIOS ============
+const ROLES = ['admin', 'empleado', 'vendedor'];
+
+function UsuariosTab({ token }) {
+  const [usuarios, setUsuarios] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
+  const [verForm, setVerForm] = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [form, setForm] = useState({});
+
+  const cargar = useCallback(async () => {
+    try {
+      const [u, v] = await Promise.all([
+        apiGet('/usuarios', token),
+        apiGet('/usuarios/vendedores-disponibles', token)
+      ]);
+      setUsuarios(Array.isArray(u) ? u : u.value || []);
+      setVendedores(Array.isArray(v) ? v : v.value || []);
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
+  }, [token]);
+
+  useFocusEffect(
+    useCallback(() => { cargar(); }, [cargar])
+  );
+
+  const abrirNuevo = () => {
+    setEditando(null);
+    setForm({ rol: 'vendedor', activo: true });
+    setVerForm(true);
+  };
+
+  const abrirEditar = (u) => {
+    setEditando(u);
+    setForm({ use_name: u.use_name, use_apel: u.use_apel, rol: u.rol, activo: !!u.activo });
+    setVerForm(true);
+  };
+
+  const guardar = async () => {
+    try {
+      if (editando) {
+        await apiPut(`/usuarios/${editando.id}`, form, token);
+        Alert.alert('OK', 'Usuario actualizado');
+      } else {
+        await apiPost('/usuarios', form, token);
+        Alert.alert('OK', 'Usuario creado');
+      }
+      setVerForm(false);
+      cargar();
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    }
+  };
+
+  const desactivar = (u) => {
+    Alert.alert('Desactivar usuario', `¿Desactivar ${u.use_logi}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Sí', onPress: async () => {
+          try {
+            await apiDelete(`/usuarios/${u.id}`, token);
+            Alert.alert('OK', 'Usuario desactivado');
+            cargar();
+          } catch (err) { Alert.alert('Error', err.message); }
+        }
+      }
+    ]);
+  };
+
+  if (verForm) {
+    return (
+      <ScrollView style={styles.panel}>
+        <Text style={styles.subtitulo}>{editando ? `Editar ${editando.use_logi}` : 'Nuevo usuario'}</Text>
+
+        {!editando && (
+          <>
+            <Text style={styles.label}>Vendedor del ERP (obligatorio, debe existir)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Código de vendedor (ej. 300029)"
+              value={form.ter_cote}
+              onChangeText={(t) => setForm({ ...form, ter_cote: t })}
+            />
+          </>
+        )}
+
+        <Text style={styles.label}>Login</Text>
+        <TextInput
+          style={[styles.input, editando && styles.inputDisabled]}
+          editable={!editando}
+          placeholder="usuario"
+          value={form.use_logi}
+          onChangeText={(t) => setForm({ ...form, use_logi: t })}
+          autoCapitalize="none"
+        />
+
+        {!editando && (
+          <>
+            <Text style={styles.label}>Contraseña</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="clave"
+              value={form.use_pass}
+              onChangeText={(t) => setForm({ ...form, use_pass: t })}
+              secureTextEntry
+            />
+          </>
+        )}
+
+        <Text style={styles.label}>Nombres</Text>
+        <TextInput style={styles.input} value={form.use_name}
+          onChangeText={(t) => setForm({ ...form, use_name: t })} />
+
+        <Text style={styles.label}>Apellidos</Text>
+        <TextInput style={styles.input} value={form.use_apel}
+          onChangeText={(t) => setForm({ ...form, use_apel: t })} />
+
+        <Text style={styles.label}>Perfil</Text>
+        <View style={styles.chips}>
+          {ROLES.map((r) => (
+            <TouchableOpacity
+              key={r}
+              style={[styles.chip, form.rol === r && styles.chipActivo]}
+              onPress={() => setForm({ ...form, rol: r })}
+            >
+              <Text style={[styles.chipText, form.rol === r && styles.chipTextActivo]}>{r}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {editando && (
+          <View style={styles.switchRow}>
+            <Text style={styles.label}>Activo</Text>
+            <Switch value={!!form.activo} onValueChange={(v) => setForm({ ...form, activo: v })} />
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.btnPrincipal} onPress={guardar}>
+          <Text style={styles.btnPrincipalText}>{editando ? 'Guardar cambios' : 'Crear usuario'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerForm(false)}>
+          <Text style={styles.btnSecundarioText}>Cancelar</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <View style={styles.panel}>
+      <TouchableOpacity style={styles.btnPrincipal} onPress={abrirNuevo}>
+        <Text style={styles.btnPrincipalText}>+ Nuevo usuario</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.subtitulo}>Usuarios de la app</Text>
+      <FlatList
+        data={usuarios}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => (
+          <View style={styles.usuarioCard}>
+            <View style={styles.usuarioHeader}>
+              <Text style={styles.usuarioLogin}>{item.use_logi}</Text>
+              <View style={[styles.rolPill, item.rol === 'admin' && styles.rolAdmin]}>
+                <Text style={styles.rolPillText}>{item.rol}</Text>
+              </View>
+              {!item.activo && <Text style={styles.inactivo}>INACTIVO</Text>}
+            </View>
+            <Text style={styles.usuarioDet}>
+              {item.use_name || ''} {item.use_apel || ''} | vendedor {item.ter_cote} {item.vendedor_nombre ? `(${item.vendedor_nombre})` : ''}
+            </Text>
+            <View style={styles.usuarioAcciones}>
+              <TouchableOpacity style={styles.btnAccion} onPress={() => abrirEditar(item)}>
+                <Text style={styles.btnAccionText}>Editar</Text>
+              </TouchableOpacity>
+              {item.activo && (
+                <TouchableOpacity style={styles.btnAccionRojo} onPress={() => desactivar(item)}>
+                  <Text style={styles.btnAccionText}>Desactivar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+        ListEmptyComponent={<Text style={styles.vacio}>Sin usuarios</Text>}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f6fa' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  vacio: { color: '#888', fontSize: 14, textAlign: 'center', marginTop: 20 },
+  tabs: { flexDirection: 'row', backgroundColor: '#1a2b4c', padding: 6 },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  tabActiva: { backgroundColor: '#fff' },
+  tabText: { color: '#c8d1e0', fontSize: 14, fontWeight: '600' },
+  tabTextActiva: { color: '#1a2b4c' },
+  panel: { flex: 1, padding: 16 },
+  parrafo: { fontSize: 14, color: '#555', lineHeight: 20, marginBottom: 14 },
+  btnPrincipal: {
+    backgroundColor: '#1a2b4c', borderRadius: 10, paddingVertical: 13,
+    alignItems: 'center', marginBottom: 10
+  },
+  btnPrincipalText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  btnDisabled: { opacity: 0.6 },
+  btnSecundario: { paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  btnSecundarioText: { color: '#888', fontSize: 14, fontWeight: '600' },
+  subtitulo: { fontSize: 15, fontWeight: '700', color: '#1a2b4c', marginTop: 12, marginBottom: 8 },
+  logItem: { backgroundColor: '#fff', borderRadius: 8, padding: 10, marginBottom: 6, borderWidth: 1, borderColor: '#eee' },
+  logRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  logProc: { fontSize: 13, fontWeight: '700', color: '#333' },
+  logRes: { fontSize: 12, fontWeight: '800' },
+  ok: { color: '#27ae60' },
+  error: { color: '#c0392b' },
+  logDet: { fontSize: 12, color: '#888', marginTop: 3 },
+  label: { fontSize: 13, color: '#555', marginBottom: 4, marginTop: 10 },
+  input: {
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, marginBottom: 6
+  },
+  inputDisabled: { backgroundColor: '#eee', color: '#999' },
+  chips: { flexDirection: 'row', gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#eee' },
+  chipActivo: { backgroundColor: '#1a2b4c' },
+  chipText: { color: '#555', fontWeight: '600' },
+  chipTextActivo: { color: '#fff' },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  usuarioCard: { backgroundColor: '#fff', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#eee' },
+  usuarioHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  usuarioLogin: { fontSize: 15, fontWeight: '700', color: '#1a2b4c', flex: 1 },
+  rolPill: { backgroundColor: '#eee', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  rolAdmin: { backgroundColor: '#1a2b4c' },
+  rolPillText: { fontSize: 11, fontWeight: '700', color: '#555' },
+  inactivo: { color: '#c0392b', fontSize: 11, fontWeight: '800' },
+  usuarioDet: { fontSize: 12, color: '#888', marginTop: 5 },
+  usuarioAcciones: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  btnAccion: { backgroundColor: '#eef3fb', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  btnAccionRojo: { backgroundColor: '#fdecea', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6 },
+  btnAccionText: { fontSize: 12, fontWeight: '700', color: '#1a2b4c' }
+});

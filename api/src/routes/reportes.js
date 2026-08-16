@@ -1,10 +1,18 @@
 const router = require('express').Router();
 const pool = require('../config/db');
 
-// Reporte: saldos por cliente (del vendedor autenticado)
-// GET /api/reportes/saldos-por-cliente
+// Reporte: saldos por cliente.
+// - Con permiso 'clientes.ver_todos' (admin/empleado): todos los clientes.
+// - Sin el permiso (vendedor): solo su cartera.
 router.get('/saldos-por-cliente', async (req, res) => {
   try {
+    const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
+    const params = [];
+    let sql = '';
+    if (!puedeTodos) {
+      sql = ' AND v.ter_core = ?';
+      params.push(req.user.ter_cote);
+    }
     const [rows] = await pool.query(
       `SELECT d.cob_cote, d.cliente_nombre, d.cliente_ruc,
               COUNT(*) AS total_documentos,
@@ -14,10 +22,10 @@ router.get('/saldos-por-cliente', async (req, res) => {
               MAX(d.dias_vencido) AS max_dias_vencido
        FROM vw_documentos_pendientes d
        JOIN clientes v ON v.ter_cote = d.cob_cote
-       WHERE v.ter_core = ?
+       WHERE 1=1 ${sql}
        GROUP BY d.cob_cote, d.cliente_nombre, d.cliente_ruc
        ORDER BY saldo_pen DESC, saldo_usd DESC`,
-      [req.user.ter_cote]
+      params
     );
     res.json(rows);
   } catch (err) {
@@ -26,8 +34,7 @@ router.get('/saldos-por-cliente', async (req, res) => {
   }
 });
 
-// Reporte: resumen por vendedor (administrativo / todos)
-// GET /api/reportes/saldos-por-vendedor
+// Reporte: resumen por vendedor (permiso 'reportes.vendedor')
 router.get('/saldos-por-vendedor', async (req, res) => {
   try {
     const [rows] = await pool.query(

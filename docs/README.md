@@ -42,6 +42,28 @@ que en producción estará en un servidor distinto al ERP.
 > la app y su envío al ERP queda como etapa futura (requiere un usuario con
 > escritura en `mcoinci010`/`mcoinci020`).
 
+## Perfiles de usuario
+
+La app tiene **3 perfiles** con permisos distintos (ver tabla `permisos` y
+`roles_permisos` en la BD). Cada perfil ve un **menú lateral (drawer)** con las
+opciones que le corresponden y los datos filtrados:
+
+| Perfil | Permisos | Menú visible | Alcance de datos |
+|---|---|---|---|
+| **admin** | 16 | Dashboard, Clientes, Reportes, Incidencias, Configuración | Todos (ver_todos) |
+| **empleado** | 10 | Dashboard, Clientes, Reportes, Incidencias | Todos (ver_todos) |
+| **vendedor** | 7 | Dashboard, Clientes, Reportes, Incidencias | Solo los suyos (filtro por vendedor) |
+
+- **Dashboard**: saldos por vendedor, top clientes deudores, documentos por
+  antigüedad de vencimiento, incidencias y frecuencia de visitas.
+- **Configuración** (solo admin): **sincronización manual** (ejecutar en
+  cualquier momento + historial de `sync_log`) y **gestión de usuarios**
+  (crear/editar/desactivar). El vendedor debe existir en el ERP.
+- **Incidencias**: historial + **frecuencia de visitas** por cliente (total,
+  última visita, promedio de días, visitas últimos 30 días). Alta con o sin
+  cliente (independiente). Las incidencias se **descargan del ERP**
+  (`mcoinci010`/`mcoinci020`).
+
 ## Documentos de referencia
 
 | Archivo | Contenido |
@@ -53,6 +75,7 @@ que en producción estará en un servidor distinto al ERP.
 | [05_produccion.md](05_produccion.md) | Despliegue en producción |
 | [06_ip_configuracion.md](06_ip_configuracion.md) | Configuración de la IP (automática y manual) |
 | [07_despliegue.md](07_despliegue.md) | Despliegue automático con GitHub Actions |
+| [08_roles_permisos.md](08_roles_permisos.md) | Roles, permisos, dashboard, sincronización y usuarios |
 
 ## Estructura de carpetas
 
@@ -63,9 +86,12 @@ C:\OpenCode\DocPendientes\
 ├── api\               <- backend: API REST + sync con el ERP
 │   ├── src\config\db.js    pool BD de la app
 │   ├── src\config\erp.js   pool ERP (solo lectura)
-│   ├── src\routes\         auth, clientes, documentos, incidencias, reportes
+│   ├── src\middleware\     auth (JWT + permisos) y permisos (requirePermiso)
+│   ├── src\routes\         auth, usuarios, clientes, documentos, dashboard,
+│   │                       incidencias, reportes, sync
+│   ├── src\services\syncService.js  sync maestros/documentos/incidencias
 │   ├── sync.js             sincronizacion ERP -> BD app
-│   ├── seed.js             crea el usuario de prueba
+│   ├── seed.js             crea usuarios de prueba (admin01/emplead01/vendedor01)
 │   └── .env                credenciales y configuracion
 └── movil\              <- frontend: app Expo (móvil y web)
     └── src\
@@ -73,5 +99,6 @@ C:\OpenCode\DocPendientes\
         ├── api\client.js   llamadas HTTP + token
         ├── components\LogoutButton.js   botón de salir (web y móvil)
         ├── context\AuthContext.js
-        └── screens\        Login, Clientes, ClienteDetalle, Incidencias, Reportes
+        └── screens\        Login, Dashboard, Clientes, ClienteDetalle,
+                            Incidencias, NuevaIncidencia, Reportes, Configuracion
 ```

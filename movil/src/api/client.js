@@ -35,6 +35,30 @@ export async function apiPost(ruta, body, token) {
   return data;
 }
 
+export async function apiPut(ruta, body, token) {
+  const res = await fetch(`${API_URL}${ruta}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error de conexion');
+  return data;
+}
+
+export async function apiDelete(ruta, token) {
+  const res = await fetch(`${API_URL}${ruta}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Error de conexion');
+  return data;
+}
+
 export async function getToken() {
   return AsyncStorage.getItem('cobranza_token');
 }

@@ -15,6 +15,7 @@ incidencias de visita**, para vendedores, con interfaz **móvil (Expo Go)** y
 | Probar en móvil y web | [docs/04_pruebas.md](docs/04_pruebas.md) |
 | Configuración de la IP (automática/manual) | [docs/06_ip_configuracion.md](docs/06_ip_configuracion.md) |
 | Despliegue automático (GitHub Actions) | [docs/07_despliegue.md](docs/07_despliegue.md) |
+| Roles, permisos, dashboard y configuración | [docs/08_roles_permisos.md](docs/08_roles_permisos.md) |
 | Desplegar en producción | [docs/05_produccion.md](docs/05_produccion.md) |
 
 ## Puesta en marcha en 5 pasos
@@ -40,15 +41,17 @@ cd C:\OpenCode\DocPendientes\movil
 npx expo start --web
 ```
 
-Login de prueba: **vendedor01 / 123456**
+Login de prueba: **admin01 / 123456** · **emplead01 / 123456** · **vendedor01 / 123456**
 
 ## Estado actual
 
 - ✅ BD de la app creada y verificada (10 objetos)
 - ✅ Sync con el ERP real funcionando (176 vendedores, 13,953 clientes, 410
-  documentos pendientes)
+  documentos pendientes, 52,416 incidencias descargadas)
 - ✅ API REST completa y probada end-to-end
-- ✅ App Expo funcionando en web y lista para Expo Go en móvil
+- ✅ Roles y permisos (admin/empleado/vendedor), dashboard, menú por perfil,
+  sincronización manual y gestión de usuarios
+- ✅ App Expo (drawer) funcionando en web y lista para Expo Go en móvil
 - ✅ Documentación completa en `docs/`
 - ✅ Repositorio en GitHub y workflow de despliegue automático configurado
 - ⏳ Envío de incidencias al ERP (requiere escritura en `mcoinci010/020`)
