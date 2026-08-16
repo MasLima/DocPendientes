@@ -52,6 +52,7 @@ que en producción estará en un servidor distinto al ERP.
 | [04_pruebas.md](04_pruebas.md) | Pruebas en móvil y en web |
 | [05_produccion.md](05_produccion.md) | Despliegue en producción |
 | [06_ip_configuracion.md](06_ip_configuracion.md) | Configuración de la IP (automática y manual) |
+| [07_despliegue.md](07_despliegue.md) | Despliegue automático con GitHub Actions |
 
 ## Estructura de carpetas
 

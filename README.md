@@ -14,6 +14,7 @@ incidencias de visita**, para vendedores, con interfaz **móvil (Expo Go)** y
 | API (endpoints y ejemplos) | [docs/03_api.md](docs/03_api.md) |
 | Probar en móvil y web | [docs/04_pruebas.md](docs/04_pruebas.md) |
 | Configuración de la IP (automática/manual) | [docs/06_ip_configuracion.md](docs/06_ip_configuracion.md) |
+| Despliegue automático (GitHub Actions) | [docs/07_despliegue.md](docs/07_despliegue.md) |
 | Desplegar en producción | [docs/05_produccion.md](docs/05_produccion.md) |
 
 ## Puesta en marcha en 5 pasos
@@ -49,6 +50,7 @@ Login de prueba: **vendedor01 / 123456**
 - ✅ API REST completa y probada end-to-end
 - ✅ App Expo funcionando en web y lista para Expo Go en móvil
 - ✅ Documentación completa en `docs/`
+- ✅ Repositorio en GitHub y workflow de despliegue automático configurado
 - ⏳ Envío de incidencias al ERP (requiere escritura en `mcoinci010/020`)
 - ⏳ Compilación APK/IPA para producción
 
