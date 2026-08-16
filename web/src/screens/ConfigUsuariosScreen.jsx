@@ -173,11 +173,31 @@ export default function ConfigUsuariosScreen() {
               <td>{u.use_name || ''} {u.use_apel || ''}</td>
               <td><span className="pill">{u.rol}</span></td>
               <td className="mono">{u.ter_cote} {u.vendedor_nombre ? `(${u.vendedor_nombre})` : ''}</td>
-              <td>{u.activo ? <span className="badge" style={{ backgroundColor: 'var(--verde)' }}>Activo</span> : <span className="badge" style={{ backgroundColor: 'var(--rojo)' }}>INACTIVO</span>}</td>
               <td>
-                <button className="btn" style={{ padding: '6px 10px', fontSize: 12, marginRight: 6 }} onClick={() => abrirEditar(u)}>Editar</button>
+                {u.activo ? (
+                  <span title="Activo" style={{ color: 'var(--verde)', fontSize: 18, lineHeight: 1 }}>✔</span>
+                ) : (
+                  <span title="Inactivo" style={{ color: 'var(--rojo)', fontSize: 18, lineHeight: 1 }}>✖</span>
+                )}
+              </td>
+              <td>
+                <button
+                  className="btn"
+                  style={{ padding: '6px 10px', fontSize: 12, marginRight: 6, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  title={`Editar ${u.use_logi}`}
+                  onClick={() => abrirEditar(u)}
+                >
+                  ✎ Editar
+                </button>
                 {u.activo && (
-                  <button className="btn btn-rojo" style={{ padding: '6px 10px', fontSize: 12 }} onClick={() => desactivar(u)}>Desactivar</button>
+                  <button
+                    className="btn btn-rojo"
+                    style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    title={`Desactivar ${u.use_logi}`}
+                    onClick={() => desactivar(u)}
+                  >
+                    ⏻ Desactivar
+                  </button>
                 )}
               </td>
             </tr>

@@ -60,7 +60,7 @@ export default function ClientesScreen() {
                 <td style={{ fontWeight: 600 }}>{c.ter_deno || 'Sin nombre'}</td>
                 <td className="mono">{c.ter_rucn || '-'}</td>
                 <td>{c.ter_fono || '-'}</td>
-                <td>{c.ter_cocp || '-'}</td>
+                <td>{c.cond_pago_desc || c.ter_cocp || '-'}</td>
                 <td>
                   <button
                     className="btn"

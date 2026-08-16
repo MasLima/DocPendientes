@@ -64,6 +64,25 @@ async function syncMaestros() {
   return { vendedores: vendedores.length, clientes: clientes.length };
 }
 
+async function syncCondicionesPago() {
+  const [conds] = await erp.query(
+    `SELECT com_cocp, com_dscp, com_ticp FROM mplcom010`
+  );
+
+  for (const c of conds) {
+    await app.query(
+      `REPLACE INTO condiciones_pago (com_cocp, com_dscp, com_ticp)
+       VALUES (?, ?, ?)`,
+      [c.com_cocp, c.com_dscp, c.com_ticp]
+    );
+  }
+
+  await logSync('CONDICIONES_PAGO', conds.length,
+    'OK', `cond=${conds.length}`);
+
+  return { condiciones: conds.length };
+}
+
 async function syncDocumentos() {
   const placeholders = ESTADOS_PAGO_VALIDOS.map(() => '?').join(',');
   const excl = ESTADOS_DOC_EXCLUIDOS.map(() => '?').join(',');
@@ -199,13 +218,26 @@ async function syncIncidencias() {
   return { incidencias: insertados, actualizadas: actualizados };
 }
 
-// Sincronizacion completa: maestros + documentos + incidencias
-async function syncCompleto() {
+// Sincronizacion completa: maestros + condiciones + documentos + incidencias.
+// 'procesos' permite ejecutar solo un subconjunto (ej: ['maestros']).
+// Los nombres validos: maestros, condiciones, documentos, incidencias.
+async function syncCompleto(procesos = null) {
+  const validos = ['maestros', 'condiciones', 'documentos', 'incidencias'];
+  const seleccion = procesos && procesos.length ? procesos : validos;
   const resultados = {};
-  resultados.maestros = await syncMaestros();
-  resultados.documentos = await syncDocumentos();
-  resultados.incidencias = await syncIncidencias();
+
+  if (seleccion.includes('maestros')) resultados.maestros = await syncMaestros();
+  if (seleccion.includes('condiciones')) resultados.condiciones = await syncCondicionesPago();
+  if (seleccion.includes('documentos')) resultados.documentos = await syncDocumentos();
+  if (seleccion.includes('incidencias')) resultados.incidencias = await syncIncidencias();
+
   return resultados;
 }
 
-module.exports = { syncMaestros, syncDocumentos, syncIncidencias, syncCompleto };
+module.exports = {
+  syncMaestros,
+  syncCondicionesPago,
+  syncDocumentos,
+  syncIncidencias,
+  syncCompleto
+};

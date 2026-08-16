@@ -3,11 +3,19 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPost } from '../api/client';
 
+const PROCESOS = [
+  { clave: 'maestros', etiqueta: 'Maestros (vendedores y clientes)' },
+  { clave: 'condiciones', etiqueta: 'Condiciones de pago' },
+  { clave: 'documentos', etiqueta: 'Documentos pendientes' },
+  { clave: 'incidencias', etiqueta: 'Incidencias' }
+];
+
 export default function ConfigSyncScreen() {
   const { token } = useAuth();
   const [log, setLog] = useState([]);
   const [ejecutando, setEjecutando] = useState(false);
   const [resultado, setResultado] = useState('');
+  const [procesos, setProcesos] = useState(PROCESOS.map((p) => p.clave));
 
   const cargarLog = useCallback(async () => {
     try {
@@ -18,18 +26,22 @@ export default function ConfigSyncScreen() {
 
   useEffect(() => { cargarLog(); }, [cargarLog]);
 
+  const toggleProceso = (clave) => {
+    setProcesos((prev) => (prev.includes(clave) ? prev.filter((p) => p !== clave) : [...prev, clave]));
+  };
+
   const ejecutarSync = async () => {
     setEjecutando(true);
     setResultado('');
     try {
-      const r = await apiPost('/sync/ejecutar', {}, token);
-      setResultado(
-        `Vendedores: ${r.resultados?.maestros?.vendedores} | ` +
-        `Clientes: ${r.resultados?.maestros?.clientes} | ` +
-        `Documentos: ${r.resultados?.documentos?.documentos} | ` +
-        `Incidencias nuevas: ${r.resultados?.incidencias?.incidencias} | ` +
-        `Actualizadas: ${r.resultados?.incidencias?.actualizadas}`
-      );
+      const r = await apiPost('/sync/ejecutar', { procesos }, token);
+      const res = r.resultados || {};
+      const partes = [];
+      if (res.maestros) partes.push(`Vendedores: ${res.maestros.vendedores} | Clientes: ${res.maestros.clientes}`);
+      if (res.condiciones) partes.push(`Condiciones: ${res.condiciones.condiciones}`);
+      if (res.documentos) partes.push(`Documentos: ${res.documentos.documentos}`);
+      if (res.incidencias) partes.push(`Incidencias nuevas: ${res.incidencias.incidencias} | Actualizadas: ${res.incidencias.actualizadas}`);
+      setResultado(partes.join(' | '));
       cargarLog();
     } catch (err) {
       setResultado(`Error: ${err.message}`);
@@ -45,9 +57,17 @@ export default function ConfigSyncScreen() {
 
       <div className="card" style={{ marginBottom: 14 }}>
         <p className="mutado" style={{ marginTop: 0 }}>
-          Sincroniza los datos desde el ERP: maestros (vendedores y clientes), documentos pendientes e incidencias.
+          Selecciona qué procesos sincronizar desde el ERP y pulsa el botón.
         </p>
-        <button className="btn" onClick={ejecutarSync} disabled={ejecutando}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {PROCESOS.map((p) => (
+            <label key={p.clave} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input type="checkbox" checked={procesos.includes(p.clave)} onChange={() => toggleProceso(p.clave)} />
+              <span style={{ fontSize: 14 }}>{p.etiqueta}</span>
+            </label>
+          ))}
+        </div>
+        <button className="btn" onClick={ejecutarSync} disabled={ejecutando || procesos.length === 0}>
           {ejecutando ? 'Sincronizando...' : 'Ejecutar sincronización ahora'}
         </button>
         {resultado && (

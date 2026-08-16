@@ -11,22 +11,26 @@ router.get('/', async (req, res) => {
     const params = [];
     const where = [];
     if (!puedeTodos) {
-      where.push('ter_core = ?');
+      where.push('c.ter_core = ?');
       params.push(req.user.ter_cote);
     }
     if (req.query.q) {
-      where.push('(ter_deno LIKE ? OR ter_cote LIKE ?)');
+      where.push('(c.ter_deno LIKE ? OR c.ter_cote LIKE ?)');
       const like = `%${req.query.q}%`;
       params.push(like, like);
     }
     const sql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    // El listado general trae todos los clientes; la busqueda ?q= se limita
+    // a 100 para que el buscador en vivo siga siendo rapido.
+    const limit = req.query.q ? 'LIMIT 100' : '';
     const [rows] = await pool.query(
-      `SELECT ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell, ter_emai,
-              ter_cocp, ter_licr, ter_cozo
-       FROM clientes
+      `SELECT c.ter_cote, c.ter_deno, c.ter_dire, c.ter_rucn, c.ter_fono, c.ter_cell, c.ter_emai,
+              c.ter_cocp, cp.com_dscp AS cond_pago_desc, c.ter_licr, c.ter_cozo
+       FROM clientes c
+       LEFT JOIN condiciones_pago cp ON cp.com_cocp = c.ter_cocp
        ${sql}
-       ORDER BY ter_deno
-       LIMIT 100`,
+       ORDER BY c.ter_deno
+       ${limit}`,
       params
     );
     res.json(rows);
@@ -40,9 +44,11 @@ router.get('/', async (req, res) => {
 router.get('/:codigo', async (req, res) => {
   try {
     const [cli] = await pool.query(
-      `SELECT ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell, ter_emai,
-              ter_cocp, ter_licr, ter_cozo
-       FROM clientes WHERE ter_cote = ?`,
+      `SELECT c.ter_cote, c.ter_deno, c.ter_dire, c.ter_rucn, c.ter_fono, c.ter_cell, c.ter_emai,
+              c.ter_cocp, cp.com_dscp AS cond_pago_desc, c.ter_licr, c.ter_cozo
+       FROM clientes c
+       LEFT JOIN condiciones_pago cp ON cp.com_cocp = c.ter_cocp
+       WHERE c.ter_cote = ?`,
       [req.params.codigo]
     );
     if (cli.length === 0) {

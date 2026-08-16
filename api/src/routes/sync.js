@@ -3,11 +3,14 @@ const pool = require('../config/db');
 const { requirePermiso } = require('../middleware/permisos');
 const { syncCompleto } = require('../services/syncService');
 
-// Ejecutar la sincronizacion manualmente (maestros + documentos + incidencias).
+// Ejecutar la sincronizacion manualmente.
 // Solo admin (permiso sync.ejecutar).
+// Body opcional: { procesos: ['maestros','condiciones','documentos','incidencias'] }
+// Si no se envian procesos, se sincroniza todo.
 router.post('/ejecutar', requirePermiso('sync.ejecutar'), async (req, res) => {
   try {
-    const resultados = await syncCompleto();
+    const procesos = req.body?.procesos;
+    const resultados = await syncCompleto(procesos);
     res.json({ message: 'Sincronizacion completada', resultados });
   } catch (err) {
     console.error(err);

@@ -19,6 +19,11 @@ function filtroVendedor(req) {
 // 1) Saldos por vendedor
 router.get('/saldos-por-vendedor', async (req, res) => {
   try {
+    // Si el usuario puede ver todos los vendedores, no filtra.
+    // Si no (vendedor), solo su propia fila.
+    const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
+    const sql = puedeTodos ? '' : ' AND v.ter_cote = ? ';
+    const params = puedeTodos ? [] : [req.user.ter_cote];
     const [rows] = await pool.query(
       `SELECT v.ter_cote, v.ter_deno AS vendedor_nombre,
               COUNT(DISTINCT d.cob_cote) AS num_clientes,
@@ -27,10 +32,11 @@ router.get('/saldos-por-vendedor', async (req, res) => {
               SUM(CASE WHEN d.cob_como = 'PEN' THEN d.saldo ELSE 0 END) AS saldo_pen,
               SUM(CASE WHEN d.cob_como = 'USD' THEN d.saldo ELSE 0 END) AS saldo_usd
        FROM vw_documentos_pendientes d
-       JOIN clientes v ON v.ter_cote = d.cob_cote
+       JOIN vendedores v ON v.ter_cote = d.vendedor_codigo
+       WHERE 1=1 ${sql}
        GROUP BY v.ter_cote, v.ter_deno
        ORDER BY saldo_pen DESC`,
-      []
+      params
     );
     res.json(rows);
   } catch (err) {

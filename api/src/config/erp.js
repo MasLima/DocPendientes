@@ -11,6 +11,7 @@ const erp = mysql.createPool({
   database: process.env.ERP_DB,
   connectionLimit: 5,
   waitForConnections: true,
+  charset: 'utf8mb4',
   dateStrings: true,
   connectTimeout: 30000
 });

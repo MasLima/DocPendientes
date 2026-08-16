@@ -31,6 +31,7 @@ export default function IncidenciasScreen() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [clienteSel, setClienteSel] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
 
   // Filtro por cliente desde la URL (cliente=Codigo&nombre=Nombre)
   useEffect(() => {
@@ -51,11 +52,12 @@ export default function IncidenciasScreen() {
     if (clienteSel) q.push(`cliente=${encodeURIComponent(clienteSel.ter_cote)}`);
     if (desde) q.push(`desde=${desde}`);
     if (hasta) q.push(`hasta=${hasta}`);
+    if (busqueda.trim()) q.push(`q=${encodeURIComponent(busqueda.trim())}`);
     const qs = q.length ? `?${q.join('&')}` : '';
     try {
       const [data, freq] = await Promise.all([
         apiGet(`/incidencias${qs}`, token),
-        apiGet('/incidencias/frecuencia', token)
+        apiGet(`/incidencias/frecuencia${busqueda.trim() ? `?q=${encodeURIComponent(busqueda.trim())}` : ''}`, token)
       ]);
       setIncidencias(Array.isArray(data) ? data : data.value || []);
       setFrecuencia(Array.isArray(freq) ? freq : freq.value || []);
@@ -65,7 +67,7 @@ export default function IncidenciasScreen() {
     } finally {
       setCargando(false);
     }
-  }, [token, clienteSel, desde, hasta]);
+  }, [token, clienteSel, desde, hasta, busqueda]);
 
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -73,10 +75,11 @@ export default function IncidenciasScreen() {
     setDesde('');
     setHasta('');
     setClienteSel(null);
+    setBusqueda('');
     setSearchParams({}, { replace: true });
   };
 
-  const hayFiltros = desde || hasta || clienteSel;
+  const hayFiltros = desde || hasta || clienteSel || busqueda.trim();
 
   return (
     <div>
@@ -102,29 +105,38 @@ export default function IncidenciasScreen() {
         </button>
       </div>
 
-      {pestana === 'historial' && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="mutado" style={{ marginBottom: 8 }}>Filtros</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-            <label className="mutado">
-              Desde <input className="input" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={{ width: 150 }} />
-            </label>
-            <label className="mutado">
-              Hasta <input className="input" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} style={{ width: 150 }} />
-            </label>
-            {clienteSel ? (
-              <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} onClick={() => { setClienteSel(null); setSearchParams({ desde, hasta }, { replace: true }); }}>
-                {clienteSel.ter_deno} ({clienteSel.ter_cote}) ✕
-              </button>
-            ) : (
-              <SelectCliente token={token} onSelect={(c) => setClienteSel(c)} />
-            )}
-            {hayFiltros && (
-              <button className="btn btn-rojo" style={{ padding: '8px 12px', fontSize: 12 }} onClick={limpiarFiltros}>Limpiar</button>
-            )}
-          </div>
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div className="mutado" style={{ marginBottom: 8 }}>Filtros</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          <input
+            className="input"
+            style={{ width: 260 }}
+            placeholder="Buscar por nombre de cliente o vendedor..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          {pestana === 'historial' && (
+            <>
+              <label className="mutado">
+                Desde <input className="input" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} style={{ width: 150 }} />
+              </label>
+              <label className="mutado">
+                Hasta <input className="input" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} style={{ width: 150 }} />
+              </label>
+              {clienteSel ? (
+                <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} onClick={() => { setClienteSel(null); setSearchParams({ desde, hasta }, { replace: true }); }}>
+                  {clienteSel.ter_deno} ({clienteSel.ter_cote}) ✕
+                </button>
+              ) : (
+                <SelectCliente token={token} onSelect={(c) => setClienteSel(c)} />
+              )}
+            </>
+          )}
+          {hayFiltros && (
+            <button className="btn btn-rojo" style={{ padding: '8px 12px', fontSize: 12 }} onClick={limpiarFiltros}>Limpiar</button>
+          )}
         </div>
-      )}
+      </div>
 
       {cargando ? (
         <div className="vacio">Cargando...</div>

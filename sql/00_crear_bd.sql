@@ -136,6 +136,14 @@ INSERT INTO monedas (com_como, com_sign, com_des, com_oper) VALUES
   ('U2', 'US$', 'DOLARES (alias U2)', 'S'),
   ('EUR', 'EUR', 'EUROS', 'N');
 
+-- Condiciones de pago (equivalente mplcom010 del ERP)
+DROP TABLE IF EXISTS condiciones_pago;
+CREATE TABLE condiciones_pago (
+  com_cocp   VARCHAR(3)  NOT NULL PRIMARY KEY COMMENT 'Codigo condicion de pago',
+  com_dscp   VARCHAR(60) NULL COMMENT 'Descripcion',
+  com_ticp   VARCHAR(15) NULL COMMENT 'Tipo (CONTADO/CREDITO/LETRA)'
+) ENGINE=InnoDB;
+
 -- Estados de documento (equivalente mplgen006 del ERP)
 DROP TABLE IF EXISTS estados_documento;
 CREATE TABLE estados_documento (
