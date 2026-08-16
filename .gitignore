@@ -15,6 +15,11 @@ movil/expo.log
 movil/web.log
 movil/.metro-health-check*
 
+# ===== Frontend web =====
+web/node_modules/
+web/dist/
+web/*.log
+
 # ===== Base de datos / utilidades =====
 *.sql.bak
 

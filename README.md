@@ -1,8 +1,11 @@
 # DocPendientes — App de Cobranza
 
 Consulta de **documentos pendientes por cliente** y **registro de
-incidencias de visita**, para vendedores, con interfaz **móvil (Expo Go)** y
-**web**.
+incidencias de visita**, con dos frontends contra la misma API:
+
+- **`movil/`** — App **Expo (React Native)** para **vendedores en campo** (Expo Go).
+- **`web/`** — Frontend **web (Vite + React)** para **empleados/administradores**
+  (gestión) y también para **vendedores** que hagan actividades de escritorio.
 
 ## Lectura rápida
 
@@ -36,7 +39,13 @@ npm run sync
 npm run seed
 npm start
 
-# 5) Abrir la app (web) en otra terminal
+# 5) Frontends (en otras terminales)
+#    Web de gestión (empleados/vendedores) en http://localhost:5173
+cd C:\OpenCode\DocPendientes\web
+npm install
+npm run dev
+
+#    App móvil de campo (vendedores) — web de desarrollo y Expo Go
 cd C:\OpenCode\DocPendientes\movil
 npx expo start --web
 ```
@@ -51,9 +60,11 @@ Login de prueba: **admin01 / 123456** · **emplead01 / 123456** · **vendedor01 
 - ✅ API REST completa y probada end-to-end
 - ✅ Roles y permisos (admin/empleado/vendedor), dashboard, menú por perfil,
   sincronización manual y gestión de usuarios
-- ✅ App Expo (drawer) funcionando en web y lista para Expo Go en móvil
-- ✅ Interfaz adaptada: menú lateral fijo en web, deslizante en móvil;
-  tema claro/oscuro; calendarios en filtros de incidencias
+- ✅ **Web de gestión** (`web/`, Vite + React): login, dashboard, clientes con
+  detalle y documentos, reportes, incidencias con filtros, configuración;
+  menú por permisos (empleados/admin/vendedores con interfaz de escritorio)
+- ✅ **App móvil de campo** (`movil/`, Expo): flujo del vendedor para registrar
+  visitas/incidencias; tema claro/oscuro; calendarios en filtros
 - ✅ Documentación completa en `docs/`
 - ✅ Repositorio en GitHub y workflow de despliegue automático configurado
 - ⏳ Envío de incidencias al ERP (requiere escritura en `mcoinci010/020`)
