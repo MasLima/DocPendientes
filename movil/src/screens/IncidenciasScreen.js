@@ -7,6 +7,8 @@ import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../context/ThemeContext';
 import { apiGet } from '../api/client';
+import DatePickerField from '../components/DatePickerField';
+import ScreenContainer from '../components/ScreenContainer';
 
 export default function IncidenciasScreen({ navigation }) {
   const { token } = useAuth();
@@ -94,15 +96,16 @@ export default function IncidenciasScreen({ navigation }) {
   const hayFiltros = desde || hasta || filtroCliente;
 
   return (
-    <View style={[styles.container, { backgroundColor: tema.fondo }]}>
-      <View style={styles.tabs}>
-        <TouchableOpacity style={[styles.tab, pestana === 'historial' && styles.tabActiva]} onPress={() => setPestana('historial')}>
-          <Text style={[styles.tabText, pestana === 'historial' && styles.tabTextActiva]}>Historial</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, pestana === 'frecuencia' && styles.tabActiva]} onPress={() => setPestana('frecuencia')}>
-          <Text style={[styles.tabText, pestana === 'frecuencia' && styles.tabTextActiva]}>Frecuencia</Text>
-        </TouchableOpacity>
-      </View>
+    <ScreenContainer>
+      <View style={[styles.container, { backgroundColor: tema.fondo }]}>
+        <View style={styles.tabs}>
+          <TouchableOpacity style={[styles.tab, pestana === 'historial' && styles.tabActiva]} onPress={() => setPestana('historial')}>
+            <Text style={[styles.tabText, pestana === 'historial' && styles.tabTextActiva]}>Historial</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.tab, pestana === 'frecuencia' && styles.tabActiva]} onPress={() => setPestana('frecuencia')}>
+            <Text style={[styles.tabText, pestana === 'frecuencia' && styles.tabTextActiva]}>Frecuencia</Text>
+          </TouchableOpacity>
+        </View>
 
       <TouchableOpacity
         style={styles.btnNueva}
@@ -116,19 +119,17 @@ export default function IncidenciasScreen({ navigation }) {
           <Text style={[styles.filtrosTitulo, { color: tema.textoSuave }]}>Filtros</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.filtrosRow}>
-              <TextInput
-                style={[styles.inputFecha, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
-                placeholder="Desde (AAAA-MM-DD)"
-                placeholderTextColor={tema.textoSuave}
+              <DatePickerField
                 value={desde}
-                onChangeText={setDesde}
+                onChange={setDesde}
+                placeholder="Desde"
+                style={{ backgroundColor: tema.tarjeta, borderColor: tema.borde }}
               />
-              <TextInput
-                style={[styles.inputFecha, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
-                placeholder="Hasta (AAAA-MM-DD)"
-                placeholderTextColor={tema.textoSuave}
+              <DatePickerField
                 value={hasta}
-                onChangeText={setHasta}
+                onChange={setHasta}
+                placeholder="Hasta"
+                style={{ backgroundColor: tema.tarjeta, borderColor: tema.borde }}
               />
               {clienteSel ? (
                 <TouchableOpacity style={[styles.clienteFiltro, { backgroundColor: tema.fondo }]} onPress={() => { setClienteSel(null); setFiltroCliente(''); }}>
@@ -212,7 +213,8 @@ export default function IncidenciasScreen({ navigation }) {
           ListEmptyComponent={<Text style={[styles.vacio, { color: tema.textoSuave }]}>Sin frecuencia de visitas</Text>}
         />
       )}
-    </View>
+      </View>
+    </ScreenContainer>
   );
 }
 

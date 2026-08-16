@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../context/ThemeContext';
 import { apiGet } from '../api/client';
+import ScreenContainer from '../components/ScreenContainer';
 
 export default function ClientesScreen({ navigation }) {
   const { token } = useAuth();
@@ -39,48 +40,50 @@ export default function ClientesScreen({ navigation }) {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: tema.fondo }]}>
-      <TextInput
-        style={[styles.buscador, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
-        placeholder="Buscar cliente (nombre o RUC)..."
-        placeholderTextColor={tema.textoSuave}
-        value={busqueda}
-        onChangeText={setBusqueda}
-      />
-      {cargando ? (
-        <Text style={[styles.vacio, { color: tema.textoSuave }]}>Cargando clientes...</Text>
-      ) : (
-        <FlatList
-          data={filtrados}
-          keyExtractor={(item) => item.ter_cote}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(); }} />
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.card, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}
-              onPress={() => navigation.navigate('ClienteDetalle', { ter_cote: item.ter_cote, ter_deno: item.ter_deno })}
-            >
-              <Text style={[styles.nombre, { color: tema.primario }]}>{item.ter_deno || 'Sin nombre'}</Text>
-              <Text style={[styles.detalle, { color: tema.textoSuave }]}>{item.ter_rucn || '-'}  |  {item.ter_fono || 'sin teléfono'}</Text>
-              <Text style={[styles.condicion, { color: tema.textoSuave }]}>
-                {item.ter_cocp ? `Cond. pago: ${item.ter_cocp}` : ''}
-                {item.ter_licr ? `   Límite: ${item.ter_licr}` : ''}
-              </Text>
-              <View style={styles.acciones}>
-                <TouchableOpacity
-                  style={styles.btnIncidencias}
-                  onPress={() => navigation.navigate('IncidenciasCliente', { ter_cote: item.ter_cote, ter_deno: item.ter_deno })}
-                >
-                  <Text style={styles.btnIncidenciasText}>Ver incidencias</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={<Text style={[styles.vacio, { color: tema.textoSuave }]}>No hay clientes asignados</Text>}
+    <ScreenContainer>
+      <View style={[styles.container, { backgroundColor: tema.fondo }]}>
+        <TextInput
+          style={[styles.buscador, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
+          placeholder="Buscar cliente (nombre o RUC)..."
+          placeholderTextColor={tema.textoSuave}
+          value={busqueda}
+          onChangeText={setBusqueda}
         />
-      )}
-    </View>
+        {cargando ? (
+          <Text style={[styles.vacio, { color: tema.textoSuave }]}>Cargando clientes...</Text>
+        ) : (
+          <FlatList
+            data={filtrados}
+            keyExtractor={(item) => item.ter_cote}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(); }} />
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.card, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}
+                onPress={() => navigation.navigate('ClienteDetalle', { ter_cote: item.ter_cote, ter_deno: item.ter_deno })}
+              >
+                <Text style={[styles.nombre, { color: tema.texto }]}>{item.ter_deno || 'Sin nombre'}</Text>
+                <Text style={[styles.detalle, { color: tema.textoSuave }]}>{item.ter_rucn || '-'}  |  {item.ter_fono || 'sin teléfono'}</Text>
+                <Text style={[styles.condicion, { color: tema.textoSuave }]}>
+                  {item.ter_cocp ? `Cond. pago: ${item.ter_cocp}` : ''}
+                  {item.ter_licr ? `   Límite: ${item.ter_licr}` : ''}
+                </Text>
+                <View style={styles.acciones}>
+                  <TouchableOpacity
+                    style={styles.btnIncidencias}
+                    onPress={() => navigation.navigate('IncidenciasCliente', { ter_cote: item.ter_cote, ter_deno: item.ter_deno })}
+                  >
+                    <Text style={styles.btnIncidenciasText}>Ver incidencias</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={<Text style={[styles.vacio, { color: tema.textoSuave }]}>No hay clientes asignados</Text>}
+          />
+        )}
+      </View>
+    </ScreenContainer>
   );
 }
 

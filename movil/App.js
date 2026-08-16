@@ -1,13 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { ThemeProvider, useTema } from './src/context/ThemeContext';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ClientesScreen from './src/screens/ClientesScreen';
@@ -17,7 +17,7 @@ import IncidenciasClienteScreen from './src/screens/IncidenciasClienteScreen';
 import ElegirClienteScreen from './src/screens/ElegirClienteScreen';
 import NuevaIncidenciaScreen from './src/screens/NuevaIncidenciaScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
-import ConfiguracionScreen from './src/screens/ConfiguracionScreen';
+import ConfiguracionScreen, { ConfigSyncScreen, ConfigUsuariosScreen } from './src/screens/ConfiguracionScreen';
 import HeaderButtons from './src/components/HeaderButtons';
 
 const Drawer = createDrawerNavigator();
@@ -27,9 +27,14 @@ const headerStyle = { backgroundColor: '#1a2b4c' };
 const headerTintColor = '#fff';
 const headerTitleStyle = { fontWeight: '700' };
 
+// En WEB el menú lateral es una sidebar fija (permanente); en móvil se
+// despliega con el botón de hamburguesa.
+const ES_WEB = Platform.OS === 'web';
+
 // Menú lateral: opciones según los permisos del usuario.
 function DrawerMenu() {
   const { user } = useAuth();
+  const { tema } = useTema();
   const permisos = user?.permisos || [];
 
   const puede = (p) => permisos.includes(p);
@@ -45,8 +50,8 @@ function DrawerMenu() {
 
   if (opciones.length === 0) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f6fa' }}>
-        <Text style={{ color: '#888', fontSize: 15 }}>Tu usuario no tiene opciones habilitadas</Text>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: tema.fondo }}>
+        <Text style={{ color: tema.textoSuave, fontSize: 15 }}>Tu usuario no tiene opciones habilitadas</Text>
       </View>
     );
   }
@@ -58,9 +63,15 @@ function DrawerMenu() {
         headerTintColor,
         headerTitleStyle,
         headerRight: () => <HeaderButtons />,
-        drawerActiveTintColor: '#1a2b4c',
+        drawerActiveTintColor: tema.primario,
         drawerActiveBackgroundColor: '#eef3fb',
-        drawerLabelStyle: { fontSize: 15, fontWeight: '600' }
+        drawerInactiveTintColor: tema.textoSuave,
+        drawerLabelStyle: { fontSize: 15, fontWeight: '600' },
+        drawerStyle: ES_WEB
+          ? { width: 260, backgroundColor: tema.tarjeta, borderRightWidth: 1, borderRightColor: tema.borde }
+          : undefined,
+        drawerType: ES_WEB ? 'permanent' : 'front',
+        openByDefault: ES_WEB
       }}
     >
       {opciones.map((o) => (
@@ -102,6 +113,24 @@ function MainNavigator() {
           headerTitleStyle,
           headerRight: () => <HeaderButtons />,
           title: 'Elegir cliente'
+        }} />
+      <Stack.Screen name="ConfigSync" component={ConfigSyncScreen}
+        options={{
+          headerShown: true,
+          headerStyle,
+          headerTintColor,
+          headerTitleStyle,
+          headerRight: () => <HeaderButtons />,
+          title: 'Sincronización'
+        }} />
+      <Stack.Screen name="ConfigUsuarios" component={ConfigUsuariosScreen}
+        options={{
+          headerShown: true,
+          headerStyle,
+          headerTintColor,
+          headerTitleStyle,
+          headerRight: () => <HeaderButtons />,
+          title: 'Usuarios'
         }} />
       <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
         options={{

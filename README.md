@@ -52,6 +52,8 @@ Login de prueba: **admin01 / 123456** · **emplead01 / 123456** · **vendedor01 
 - ✅ Roles y permisos (admin/empleado/vendedor), dashboard, menú por perfil,
   sincronización manual y gestión de usuarios
 - ✅ App Expo (drawer) funcionando en web y lista para Expo Go en móvil
+- ✅ Interfaz adaptada: menú lateral fijo en web, deslizante en móvil;
+  tema claro/oscuro; calendarios en filtros de incidencias
 - ✅ Documentación completa en `docs/`
 - ✅ Repositorio en GitHub y workflow de despliegue automático configurado
 - ⏳ Envío de incidencias al ERP (requiere escritura en `mcoinci010/020`)

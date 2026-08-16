@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../context/ThemeContext';
 import { apiGet } from '../api/client';
+import ScreenContainer from '../components/ScreenContainer';
 
 function fmt(v) {
   return Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -58,12 +59,13 @@ export default function DashboardScreen() {
   );
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: tema.fondo }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(); }} />}
-    >
-      <Text style={[styles.bienvenida, { color: tema.texto }]}>Bienvenido, {user?.nombre || user?.use_logi}</Text>
-      <Text style={[styles.rol, { color: tema.textoSuave }]}>Perfil: {user?.rol}</Text>
+    <ScreenContainer>
+      <ScrollView
+        style={[styles.container, { backgroundColor: tema.fondo }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(); }} />}
+      >
+        <Text style={[styles.bienvenida, { color: tema.texto }]}>Bienvenido, {user?.nombre || user?.use_logi}</Text>
+        <Text style={[styles.rol, { color: tema.textoSuave }]}>Perfil: {user?.rol}</Text>
 
       {/* Antiguedad de vencimiento */}
       <Card title="Documentos por antigüedad de vencimiento">
@@ -131,7 +133,8 @@ export default function DashboardScreen() {
           </View>
         ))}
       </Card>
-    </ScrollView>
+      </ScrollView>
+    </ScreenContainer>
   );
 }
 
