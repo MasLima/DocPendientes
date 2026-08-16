@@ -121,8 +121,8 @@ router.get('/incidencias-resumen', async (req, res) => {
     const [tot] = await pool.query(
       `SELECT COUNT(*) AS total_incidencias,
               COUNT(DISTINCT ter_cote) AS clientes_visitados
-       FROM incidencias
-       WHERE ter_cote IS NOT NULL ${sql}`,
+       FROM incidencias i
+       WHERE i.ter_cote IS NOT NULL ${sql}`,
       params
     );
 

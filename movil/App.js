@@ -7,15 +7,18 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { ThemeProvider } from './src/context/ThemeContext';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import ClientesScreen from './src/screens/ClientesScreen';
 import ClienteDetalleScreen from './src/screens/ClienteDetalleScreen';
 import IncidenciasScreen from './src/screens/IncidenciasScreen';
+import IncidenciasClienteScreen from './src/screens/IncidenciasClienteScreen';
+import ElegirClienteScreen from './src/screens/ElegirClienteScreen';
 import NuevaIncidenciaScreen from './src/screens/NuevaIncidenciaScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import ConfiguracionScreen from './src/screens/ConfiguracionScreen';
-import LogoutButton from './src/components/LogoutButton';
+import HeaderButtons from './src/components/HeaderButtons';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -40,13 +43,21 @@ function DrawerMenu() {
     opciones.push({ name: 'Configuración', title: 'Configuración', screen: <ConfiguracionScreen /> });
   }
 
+  if (opciones.length === 0) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f6fa' }}>
+        <Text style={{ color: '#888', fontSize: 15 }}>Tu usuario no tiene opciones habilitadas</Text>
+      </View>
+    );
+  }
+
   return (
     <Drawer.Navigator
       screenOptions={{
         headerStyle,
         headerTintColor,
         headerTitleStyle,
-        headerRight: () => <LogoutButton />,
+        headerRight: () => <HeaderButtons />,
         drawerActiveTintColor: '#1a2b4c',
         drawerActiveBackgroundColor: '#eef3fb',
         drawerLabelStyle: { fontSize: 15, fontWeight: '600' }
@@ -71,14 +82,34 @@ function MainNavigator() {
           headerStyle,
           headerTintColor,
           headerTitleStyle,
+          headerRight: () => <HeaderButtons />,
           title: route.params?.ter_deno || 'Cliente'
         })} />
+      <Stack.Screen name="IncidenciasCliente" component={IncidenciasClienteScreen}
+        options={({ route }) => ({
+          headerShown: true,
+          headerStyle,
+          headerTintColor,
+          headerTitleStyle,
+          headerRight: () => <HeaderButtons />,
+          title: `Incidencias: ${route.params?.ter_deno || route.params?.ter_cote || ''}`
+        })} />
+      <Stack.Screen name="ElegirCliente" component={ElegirClienteScreen}
+        options={{
+          headerShown: true,
+          headerStyle,
+          headerTintColor,
+          headerTitleStyle,
+          headerRight: () => <HeaderButtons />,
+          title: 'Elegir cliente'
+        }} />
       <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
         options={{
           headerShown: true,
           headerStyle,
           headerTintColor,
           headerTitleStyle,
+          headerRight: () => <HeaderButtons />,
           title: 'Nueva Incidencia'
         }} />
     </Stack.Navigator>
@@ -106,10 +137,12 @@ function AppNavigator() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <AppNavigator />
-        <StatusBar style="light" />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppNavigator />
+          <StatusBar style="light" />
+        </AuthProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

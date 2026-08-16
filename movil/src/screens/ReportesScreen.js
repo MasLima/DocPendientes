@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useTema } from '../context/ThemeContext';
 import { apiGet } from '../api/client';
 
 function formatMoneda(v) {
@@ -14,6 +15,7 @@ function formatMoneda(v) {
 
 export default function ReportesScreen({ navigation }) {
   const { token } = useAuth();
+  const { tema } = useTema();
   const [data, setData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -41,7 +43,7 @@ export default function ReportesScreen({ navigation }) {
   const totalDocs = data.reduce((acc, r) => acc + (Number(r.total_documentos) || 0), 0);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: tema.fondo }]}>
       <View style={styles.totales}>
         <Text style={styles.totalLabel}>Saldos por cliente (S/.)</Text>
         <Text style={styles.totalValor}>Total pendiente: S/. {formatMoneda(totalSaldos)}</Text>
@@ -49,7 +51,7 @@ export default function ReportesScreen({ navigation }) {
       </View>
 
       {cargando ? (
-        <Text style={styles.vacio}>Cargando...</Text>
+        <Text style={[styles.vacio, { color: tema.textoSuave }]}>Cargando...</Text>
       ) : (
         <FlatList
           data={data}
@@ -59,23 +61,23 @@ export default function ReportesScreen({ navigation }) {
           }
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={styles.card}
+              style={[styles.card, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}
               onPress={() => navigation.navigate('ClienteDetalle', {
                 ter_cote: item.cob_cote,
                 ter_deno: item.cliente_nombre
               })}
             >
               <View style={styles.cardHeader}>
-                <Text style={styles.nombre} numberOfLines={1}>{item.cliente_nombre}</Text>
+                <Text style={[styles.nombre, { color: tema.primario }]} numberOfLines={1}>{item.cliente_nombre}</Text>
                 <Text style={styles.saldo}>S/. {formatMoneda(item.saldo_pen)}</Text>
               </View>
-              <Text style={styles.detalle}>
+              <Text style={[styles.detalle, { color: tema.textoSuave }]}>
                 {item.total_documentos} docs | {item.total_vencidos} vencidos |
                 máx {item.max_dias_vencido} días
               </Text>
             </TouchableOpacity>
           )}
-          ListEmptyComponent={<Text style={styles.vacio}>Sin datos</Text>}
+          ListEmptyComponent={<Text style={[styles.vacio, { color: tema.textoSuave }]}>Sin datos</Text>}
         />
       )}
     </View>

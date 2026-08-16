@@ -16,8 +16,15 @@ export function AuthProvider({ children }) {
     (async () => {
       try {
         const [t, u] = await Promise.all([getToken(), getUser()]);
-        if (t) setTokenState(t);
-        if (u) setUser(u);
+        // Solo se restaura una sesion valida: token + usuario con permisos.
+        // Si falta el usuario o los permisos (guardado por una version
+        // anterior), se limpia la sesion para forzar un nuevo login.
+        if (t && u && Array.isArray(u.permisos) && u.permisos.length > 0) {
+          setTokenState(t);
+          setUser(u);
+        } else {
+          await Promise.all([clearToken(), clearUser()]);
+        }
       } finally {
         setLoading(false);
       }

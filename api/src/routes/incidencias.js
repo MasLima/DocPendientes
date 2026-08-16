@@ -9,8 +9,11 @@ const pool = require('../config/db');
 // ============================================================
 
 // Historial de incidencias
-// GET /api/incidencias?cliente=XXXX  (opcional filtrar por cliente)
-// GET /api/incidencias?independientes=1 (solo sin cliente)
+// GET /api/incidencias
+//   ?cliente=XXXX        filtrar por cliente
+//   ?desde=YYYY-MM-DD    desde una fecha (fe_regi)
+//   ?hasta=YYYY-MM-DD    hasta una fecha (fe_regi)
+//   ?independientes=1    solo sin cliente
 router.get('/', async (req, res) => {
   try {
     const puedeTodas = req.user.permisos && req.user.permisos.includes('incidencias.ver_todas');
@@ -24,6 +27,14 @@ router.get('/', async (req, res) => {
     if (req.query.cliente) {
       where += ' AND i.ter_cote = ?';
       params.push(req.query.cliente);
+    }
+    if (req.query.desde) {
+      where += ' AND i.fe_regi >= ?';
+      params.push(req.query.desde);
+    }
+    if (req.query.hasta) {
+      where += ' AND i.fe_regi <= ?';
+      params.push(req.query.hasta);
     }
     if (req.query.independientes === '1') {
       where += ' AND i.ter_cote IS NULL';
@@ -137,15 +148,15 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Registrar nueva incidencia.
-// - Ligada a cliente: { ter_cote, inc_desc, ... }
-// - Independiente: omitir ter_cote (solo inc_desc).
-// Queda pendiente de envio al ERP (sincronizada=0) o se marca como
-// local (no tiene inc_codi_erp).
+// Registrar nueva incidencia (SIEMPRE ligada a un cliente).
+// Body: { ter_cote, inc_desc, inc_acci, fe_aten }
 router.post('/', async (req, res) => {
   const { ter_cote, inc_cont, inc_desc, inc_acci, fe_aten } = req.body;
   if (!inc_desc) {
     return res.status(400).json({ error: 'Se requiere inc_desc' });
+  }
+  if (!ter_cote) {
+    return res.status(400).json({ error: 'La incidencia debe estar ligada a un cliente (ter_cote)' });
   }
 
   const conexion = await pool.getConnection();
@@ -157,7 +168,7 @@ router.post('/', async (req, res) => {
          (ter_cote, use_emno, inc_cont, inc_desc, inc_acci,
           fe_regi, fe_aten, inc_esta, inc_estc, sincronizada)
        VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 1, 1, 0)`,
-      [ter_cote || null, req.user.ter_cote, inc_cont || null, inc_desc, inc_acci || null, fe_aten || null]
+      [ter_cote, req.user.ter_cote, inc_cont || null, inc_desc, inc_acci || null, fe_aten || null]
     );
 
     await conexion.commit();

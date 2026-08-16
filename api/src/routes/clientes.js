@@ -4,21 +4,29 @@ const pool = require('../config/db');
 // Lista de clientes.
 // - Con permiso 'clientes.ver_todos' (admin/empleado): todos.
 // - Sin el permiso (vendedor): solo los de su cartera (ter_core).
+// - ?q=texto  filtra por nombre o codigo (para buscar al crear incidencias).
 router.get('/', async (req, res) => {
   try {
     const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
     const params = [];
-    let sql = '';
+    const where = [];
     if (!puedeTodos) {
-      sql = 'WHERE ter_core = ?';
+      where.push('ter_core = ?');
       params.push(req.user.ter_cote);
     }
+    if (req.query.q) {
+      where.push('(ter_deno LIKE ? OR ter_cote LIKE ?)');
+      const like = `%${req.query.q}%`;
+      params.push(like, like);
+    }
+    const sql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const [rows] = await pool.query(
       `SELECT ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell, ter_emai,
               ter_cocp, ter_licr, ter_cozo
        FROM clientes
        ${sql}
-       ORDER BY ter_deno`,
+       ORDER BY ter_deno
+       LIMIT 100`,
       params
     );
     res.json(rows);

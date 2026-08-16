@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useTema } from '../context/ThemeContext';
 import { apiGet } from '../api/client';
 
 function fmt(v) {
@@ -12,6 +13,7 @@ function fmt(v) {
 
 export default function DashboardScreen() {
   const { token, user } = useAuth();
+  const { tema } = useTema();
   const [datos, setDatos] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -41,7 +43,7 @@ export default function DashboardScreen() {
   );
 
   if (!datos) {
-    return <View style={styles.center}><Text style={styles.vacio}>Cargando dashboard...</Text></View>;
+    return <View style={[styles.center, { backgroundColor: tema.fondo }]}><Text style={[styles.vacio, { color: tema.textoSuave }]}>Cargando dashboard...</Text></View>;
   }
 
   const a = datos.antiguedad || {};
@@ -49,40 +51,40 @@ export default function DashboardScreen() {
   const inc = datos.incidencias || {};
 
   const Card = ({ title, children }) => (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{title}</Text>
+    <View style={[styles.card, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}>
+      <Text style={[styles.cardTitle, { color: tema.primario }]}>{title}</Text>
       {children}
     </View>
   );
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: tema.fondo }]}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); cargar(); }} />}
     >
-      <Text style={styles.bienvenida}>Bienvenido, {user?.nombre || user?.use_logi}</Text>
-      <Text style={styles.rol}>Perfil: {user?.rol}</Text>
+      <Text style={[styles.bienvenida, { color: tema.texto }]}>Bienvenido, {user?.nombre || user?.use_logi}</Text>
+      <Text style={[styles.rol, { color: tema.textoSuave }]}>Perfil: {user?.rol}</Text>
 
       {/* Antiguedad de vencimiento */}
       <Card title="Documentos por antigüedad de vencimiento">
         <View style={styles.barras}>
-          <Barra label="Al día" n={a.al_dia} total={totalDocs} color="#27ae60" />
-          <Barra label="1-30 d" n={a.de_1_30} total={totalDocs} color="#e67e22" />
-          <Barra label="31-60 d" n={a.de_31_60} total={totalDocs} color="#d35400" />
-          <Barra label="61-90 d" n={a.de_61_90} total={totalDocs} color="#c0392b" />
-          <Barra label="+90 d" n={a.mas_90} total={totalDocs} color="#8e44ad" />
+          <Barra tema={tema} label="Al día" n={a.al_dia} total={totalDocs} color="#27ae60" />
+          <Barra tema={tema} label="1-30 d" n={a.de_1_30} total={totalDocs} color="#e67e22" />
+          <Barra tema={tema} label="31-60 d" n={a.de_31_60} total={totalDocs} color="#d35400" />
+          <Barra tema={tema} label="61-90 d" n={a.de_61_90} total={totalDocs} color="#c0392b" />
+          <Barra tema={tema} label="+90 d" n={a.mas_90} total={totalDocs} color="#8e44ad" />
         </View>
-        <Text style={styles.totalDoc}>Total documentos: {totalDocs}</Text>
+        <Text style={[styles.totalDoc, { color: tema.textoSuave }]}>Total documentos: {totalDocs}</Text>
       </Card>
 
       {/* Top clientes deudores */}
       <Card title="Top clientes deudores">
         {(datos.topClientes || []).slice(0, 5).map((c, i) => (
-          <View key={c.cob_cote} style={styles.fila}>
-            <Text style={styles.pos}>{i + 1}</Text>
+          <View key={c.cob_cote} style={[styles.fila, { borderBottomColor: tema.borde }]}>
+            <Text style={[styles.pos, { color: tema.primario }]}>{i + 1}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.nombre} numberOfLines={1}>{c.cliente_nombre}</Text>
-              <Text style={styles.sub}>S/. {fmt(c.saldo_pen)} {c.saldo_usd ? `| US$ ${fmt(c.saldo_usd)}` : ''}</Text>
+              <Text style={[styles.nombre, { color: tema.texto }]} numberOfLines={1}>{c.cliente_nombre}</Text>
+              <Text style={[styles.sub, { color: tema.textoSuave }]}>S/. {fmt(c.saldo_pen)} {c.saldo_usd ? `| US$ ${fmt(c.saldo_usd)}` : ''}</Text>
             </View>
             <Text style={styles.dias}>{c.max_dias_vencido > 0 ? `${c.max_dias_vencido} d venc` : 'al día'}</Text>
           </View>
@@ -92,11 +94,11 @@ export default function DashboardScreen() {
       {/* Saldos por vendedor */}
       <Card title="Saldos por vendedor">
         {(datos.porVendedor || []).slice(0, 5).map((v) => (
-          <View key={v.ter_cote} style={styles.fila}>
-            <Text style={styles.pos}>•</Text>
+          <View key={v.ter_cote} style={[styles.fila, { borderBottomColor: tema.borde }]}>
+            <Text style={[styles.pos, { color: tema.primario }]}>•</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.nombre} numberOfLines={1}>{v.vendedor_nombre}</Text>
-              <Text style={styles.sub}>{v.num_clientes} clientes | {v.total_documentos} docs</Text>
+              <Text style={[styles.nombre, { color: tema.texto }]} numberOfLines={1}>{v.vendedor_nombre}</Text>
+              <Text style={[styles.sub, { color: tema.textoSuave }]}>{v.num_clientes} clientes | {v.total_documentos} docs</Text>
             </View>
             <Text style={styles.saldo}>S/. {fmt(v.saldo_pen)}</Text>
           </View>
@@ -106,20 +108,20 @@ export default function DashboardScreen() {
       {/* Incidencias y frecuencia */}
       <Card title="Incidencias y frecuencia de visitas">
         <View style={styles.totales}>
-          <View style={styles.totalCaja}>
-            <Text style={styles.totalNum}>{inc.totales?.total_incidencias || 0}</Text>
-            <Text style={styles.totalLbl}>Incidencias</Text>
+          <View style={[styles.totalCaja, { backgroundColor: tema.fondo }]}>
+            <Text style={[styles.totalNum, { color: tema.primario }]}>{inc.totales?.total_incidencias || 0}</Text>
+            <Text style={[styles.totalLbl, { color: tema.textoSuave }]}>Incidencias</Text>
           </View>
-          <View style={styles.totalCaja}>
-            <Text style={styles.totalNum}>{inc.totales?.clientes_visitados || 0}</Text>
-            <Text style={styles.totalLbl}>Clientes visitados</Text>
+          <View style={[styles.totalCaja, { backgroundColor: tema.fondo }]}>
+            <Text style={[styles.totalNum, { color: tema.primario }]}>{inc.totales?.clientes_visitados || 0}</Text>
+            <Text style={[styles.totalLbl, { color: tema.textoSuave }]}>Clientes visitados</Text>
           </View>
         </View>
         {(inc.resumen || []).slice(0, 5).map((r) => (
-          <View key={r.ter_cote} style={styles.fila}>
+          <View key={r.ter_cote} style={[styles.fila, { borderBottomColor: tema.borde }]}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.nombre} numberOfLines={1}>{r.cliente_nombre || r.ter_cote}</Text>
-              <Text style={styles.sub}>
+              <Text style={[styles.nombre, { color: tema.texto }]} numberOfLines={1}>{r.cliente_nombre || r.ter_cote}</Text>
+              <Text style={[styles.sub, { color: tema.textoSuave }]}>
                 {r.total_incidencias} visitas | última: {r.ultima_visita || '-'}
               </Text>
             </View>
@@ -133,15 +135,15 @@ export default function DashboardScreen() {
   );
 }
 
-function Barra({ label, n, total, color }) {
+function Barra({ tema, label, n, total, color }) {
   const pct = total > 0 ? Math.round(((n || 0) / total) * 100) : 0;
   return (
     <View style={styles.barraRow}>
-      <Text style={styles.barraLabel}>{label}</Text>
-      <View style={styles.barraTrack}>
+      <Text style={[styles.barraLabel, { color: tema.textoSuave }]}>{label}</Text>
+      <View style={[styles.barraTrack, { backgroundColor: tema.borde }]}>
         <View style={[styles.barraFill, { width: `${Math.max(pct, 2)}%`, backgroundColor: color }]} />
       </View>
-      <Text style={styles.barraVal}>{n || 0}</Text>
+      <Text style={[styles.barraVal, { color: tema.texto }]}>{n || 0}</Text>
     </View>
   );
 }
