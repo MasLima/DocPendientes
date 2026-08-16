@@ -78,8 +78,15 @@ jobs:
     name: DESPLIEGUE al servidor
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && secrets.SSH_HOST != ''
+    if: github.ref == 'refs/heads/main'
     environment: production
+    env:
+      # GitHub NO permite usar secrets en 'if:' directamente;
+      # se exponen como variables de entorno del job.
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
 
     steps:
       - name: Checkout del codigo
@@ -88,22 +95,19 @@ jobs:
       # La web ya viene compilada; aqui se descargan los artefactos
       # y se copian al servidor via rsync/ssh.
       - name: Configurar clave SSH
+        if: env.SSH_HOST != ''
         env:
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "${{ secrets.SSH_PORT || '22' }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       # ---------- DESPLIEGUE: WEB (estaticos) ----------
       # Destino tipico: nginx sirve la carpeta, ej. /var/www/cobranza/web
       - name: DESPLIEGUE: web estatica
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        if: env.SSH_HOST != ''
         run: |
           scp -P "$SSH_PORT" -r movil/dist/* "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/web/"
 
@@ -111,20 +115,17 @@ jobs:
       # Destino tipico: /var/www/cobranza/api ; luego se relanza con pm2
       # o systemd (ajustar a la configuracion real del servidor).
       - name: DESPLIEGUE: API y recarga con PM2
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        if: env.SSH_HOST != ''
         run: |
           ssh -p "$SSH_PORT" "${SSH_USER}@${SSH_HOST}" "
             cd ${DEPLOY_PATH}/api && git pull origin main || true && npm ci --omit=dev && npm run sync && pm2 restart cobranza-api || pm2 start src/server.js --name cobranza-api
           "
 
       - name: Estado final del despliegue
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        if: env.SSH_HOST != ''
         run: |
           ssh -p "$SSH_PORT" "${SSH_USER}@${SSH_HOST}" "pm2 status || true"
+
+      - name: Aviso de configuracion pendiente
+        if: env.SSH_HOST == ''
+        run: echo "Secretos de despliegue no definidos. Compilacion OK, artefactos publicados. Ver docs/07_despliegue.md"
