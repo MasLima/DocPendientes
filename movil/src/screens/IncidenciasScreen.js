@@ -194,14 +194,24 @@ export default function IncidenciasScreen({ navigation }) {
               style={[styles.card, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}
               onPress={() => navigation.navigate('IncidenciasCliente', { ter_cote: item.ter_cote, ter_deno: item.cliente_nombre })}
             >
-              <Text style={[styles.cliente, { color: tema.texto }]}>{item.cliente_nombre || item.ter_cote}</Text>
-              <View style={styles.freqRow}>
-                <Text style={[styles.freqItem, { color: tema.primario }]}>{item.total_visitas} visitas</Text>
-                <Text style={[styles.freqItem, { color: tema.primario }]}>última: {item.ultima_visita || '-'}</Text>
+              <View style={styles.headerRow}>
+                <Text style={[styles.cliente, { color: tema.texto }]} numberOfLines={1}>{item.cliente_nombre || item.ter_cote}</Text>
                 <Text style={[styles.freqItem, { color: tema.primario }]}>
                   {item.dias_desde_ultima === 0 ? 'hoy' : `hace ${item.dias_desde_ultima} d`}
                 </Text>
               </View>
+              <Text style={[styles.freqVendedor, { color: tema.textoSuave }]}>
+                Vendedor: {item.vendedor_nombre || item.ter_cote}
+              </Text>
+              <View style={styles.freqRow}>
+                <Text style={[styles.freqItem, { color: tema.primario }]}>{item.total_visitas} visitas</Text>
+                <Text style={[styles.freqItem, { color: tema.primario }]}>última: {item.ultima_visita || '-'}</Text>
+              </View>
+              {item.ultima_desc ? (
+                <Text style={[styles.desc, { color: tema.textoSuave }]} numberOfLines={2}>
+                  Última: {item.ultima_desc}
+                </Text>
+              ) : null}
               <View style={styles.freqRow}>
                 <Text style={[styles.freqSub, { color: tema.textoSuave }]}>
                   {item.promedio_dias_entre_visitas ? `cada ~${item.promedio_dias_entre_visitas} d` : '-'}
@@ -259,6 +269,7 @@ const styles = StyleSheet.create({
   fecha: { fontSize: 12, color: '#999', marginTop: 4 },
   sinSync: { fontSize: 11, color: '#e67e22', fontWeight: '700', marginTop: 4 },
   freqRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  freqVendedor: { fontSize: 12, marginTop: 4 },
   freqItem: { fontSize: 13, fontWeight: '700', color: '#1a2b4c' },
   freqSub: { fontSize: 12, color: '#888' },
   vacio: { textAlign: 'center', color: '#888', marginTop: 30, fontSize: 15 }

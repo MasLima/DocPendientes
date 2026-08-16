@@ -55,6 +55,9 @@ export default function IncidenciasClienteScreen({ route, navigation }) {
     <View style={styles.container}>
       <View style={styles.headerCard}>
         <Text style={styles.cliente}>{ter_deno || ter_cote}</Text>
+        {resumen.vendedor_nombre ? (
+          <Text style={styles.vendedor}>Vendedor: {resumen.vendedor_nombre}</Text>
+        ) : null}
 
         <View style={styles.metricas}>
           <View style={styles.metrica}>
@@ -73,10 +76,21 @@ export default function IncidenciasClienteScreen({ route, navigation }) {
           </View>
         </View>
 
+        {resumen.dias_desde_ultima !== undefined && (
+          <Text style={styles.diasDesde}>
+            {resumen.dias_desde_ultima === 0
+              ? 'Visitado hoy'
+              : `Hace ${resumen.dias_desde_ultima} días desde la última visita`}
+          </Text>
+        )}
+
         {ultima ? (
           <View style={styles.ultima}>
             <Text style={styles.ultimaTitulo}>Última incidencia ({ultima.fe_regi})</Text>
             <Text style={styles.ultimaDesc} numberOfLines={3}>{ultima.inc_desc}</Text>
+            {ultima.vendedor_nombre ? (
+              <Text style={styles.ultimaVendedor}>por {ultima.vendedor_nombre}</Text>
+            ) : null}
           </View>
         ) : (
           <Text style={styles.sinDatos}>Sin incidencias registradas para este cliente</Text>
@@ -129,13 +143,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a2b4c', borderRadius: 12, padding: 14, marginBottom: 12
   },
   cliente: { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 10 },
+  vendedor: { color: '#c8d1e0', fontSize: 12, marginBottom: 8 },
   metricas: { flexDirection: 'row', marginBottom: 10 },
   metrica: { flex: 1, marginRight: 8 },
   metricaNum: { color: '#fff', fontSize: 14, fontWeight: '700' },
   metricaLbl: { color: '#c8d1e0', fontSize: 11, marginTop: 2 },
+  diasDesde: { color: '#f6e58d', fontSize: 12, fontWeight: '600', marginBottom: 8 },
   ultima: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, padding: 10, marginBottom: 10 },
   ultimaTitulo: { color: '#c8d1e0', fontSize: 11, fontWeight: '600' },
   ultimaDesc: { color: '#fff', fontSize: 13, marginTop: 4 },
+  ultimaVendedor: { color: '#c8d1e0', fontSize: 11, marginTop: 4 },
   sinDatos: { color: '#c8d1e0', fontSize: 13, marginBottom: 10 },
   btnNueva: {
     backgroundColor: '#27ae60', borderRadius: 8, paddingVertical: 11, alignItems: 'center'

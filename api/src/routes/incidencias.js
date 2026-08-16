@@ -70,15 +70,17 @@ router.get('/frecuencia', async (req, res) => {
   try {
     const puedeTodas = req.user.permisos && req.user.permisos.includes('incidencias.ver_todas');
     const params = [];
-    let sql = '';
-    if (!puedeTodas) {
-      sql = ' AND i.use_emno = ? ';
-      params.push(req.user.ter_cote);
-    }
+    // Un vendedor solo ve la frecuencia de sus propias visitas.
+    const fVendI = puedeTodas ? '' : ' AND i.use_emno = ? ';
+    const fVendX = puedeTodas ? '' : ' AND x.use_emno = ? ';
+    const fVendX2 = puedeTodas ? '' : ' AND x2.use_emno = ? ';
+    if (!puedeTodas) params.push(req.user.ter_cote, req.user.ter_cote, req.user.ter_cote);
 
     const [rows] = await pool.query(
       `SELECT i.ter_cote,
               c.ter_deno AS cliente_nombre,
+              v.ter_deno AS vendedor_nombre,
+              u.inc_desc AS ultima_desc,
               COUNT(*) AS total_visitas,
               MAX(i.fe_regi) AS ultima_visita,
               MIN(i.fe_regi) AS primera_visita,
@@ -87,8 +89,20 @@ router.get('/frecuencia', async (req, res) => {
               SUM(CASE WHEN i.fe_regi >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS visitas_ultimos_30
        FROM incidencias i
        LEFT JOIN clientes c ON c.ter_cote = i.ter_cote
-       WHERE i.ter_cote IS NOT NULL ${sql}
-       GROUP BY i.ter_cote, c.ter_deno
+       LEFT JOIN (
+          SELECT x.ter_cote, x.inc_desc, x.use_emno
+          FROM incidencias x
+          JOIN (SELECT ter_cote, MAX(fe_regi) AS mf
+                FROM incidencias x2
+                WHERE x2.ter_cote IS NOT NULL ${fVendX2}
+                GROUP BY ter_cote) g
+            ON g.ter_cote = x.ter_cote AND g.mf = x.fe_regi
+          WHERE x.ter_cote IS NOT NULL ${fVendX}
+          GROUP BY x.ter_cote
+       ) u ON u.ter_cote = i.ter_cote
+       LEFT JOIN vendedores v ON v.ter_cote = u.use_emno
+       WHERE i.ter_cote IS NOT NULL ${fVendI}
+       GROUP BY i.ter_cote, c.ter_deno, v.ter_deno, u.inc_desc
        ORDER BY ultima_visita DESC`,
       params
     );
@@ -104,10 +118,12 @@ router.get('/cliente/:codigo', async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT i.inc_codi, i.inc_codi_erp, i.ter_cote, c.ter_deno AS cliente_nombre,
+              i.use_emno, v.ter_deno AS vendedor_nombre,
               i.inc_cont, i.inc_desc, i.inc_acci,
               i.fe_regi, i.fe_aten, i.fe_resu, i.inc_esta, i.inc_estc
        FROM incidencias i
        LEFT JOIN clientes c ON c.ter_cote = i.ter_cote
+       LEFT JOIN vendedores v ON v.ter_cote = i.use_emno
        WHERE i.ter_cote = ?
        ORDER BY i.fe_regi DESC`,
       [req.params.codigo]

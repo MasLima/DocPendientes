@@ -31,7 +31,88 @@ const headerTitleStyle = { fontWeight: '700' };
 // despliega con el botón de hamburguesa.
 const ES_WEB = Platform.OS === 'web';
 
+function opcionesHeader(title) {
+  return {
+    headerShown: true,
+    headerStyle,
+    headerTintColor,
+    headerTitleStyle,
+    headerRight: () => <HeaderButtons />,
+    title
+  };
+}
+
+// ============================================================
+// Cada sección del menú es un Stack propio. Así la navegación
+// interna (detalle, incidencias, nueva incidencia, elegir cliente)
+// se resuelve dentro de la misma sección sin depender del drawer.
+// ============================================================
+
+function ClientesStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ClientesLista" component={ClientesScreen} />
+      <Stack.Screen name="ClienteDetalle" component={ClienteDetalleScreen}
+        options={({ route }) => opcionesHeader(route.params?.ter_deno || 'Cliente')} />
+      <Stack.Screen name="IncidenciasCliente" component={IncidenciasClienteScreen}
+        options={({ route }) => opcionesHeader(`Incidencias: ${route.params?.ter_deno || route.params?.ter_cote || ''}`)} />
+      <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
+        options={opcionesHeader('Nueva Incidencia')} />
+    </Stack.Navigator>
+  );
+}
+
+function ReportesStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ReportesLista" component={ReportesScreen} />
+      <Stack.Screen name="ClienteDetalle" component={ClienteDetalleScreen}
+        options={({ route }) => opcionesHeader(route.params?.ter_deno || 'Cliente')} />
+      <Stack.Screen name="IncidenciasCliente" component={IncidenciasClienteScreen}
+        options={({ route }) => opcionesHeader(`Incidencias: ${route.params?.ter_deno || route.params?.ter_cote || ''}`)} />
+      <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
+        options={opcionesHeader('Nueva Incidencia')} />
+    </Stack.Navigator>
+  );
+}
+
+function IncidenciasStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="IncidenciasLista" component={IncidenciasScreen} />
+      <Stack.Screen name="IncidenciasCliente" component={IncidenciasClienteScreen}
+        options={({ route }) => opcionesHeader(`Incidencias: ${route.params?.ter_deno || route.params?.ter_cote || ''}`)} />
+      <Stack.Screen name="ElegirCliente" component={ElegirClienteScreen}
+        options={opcionesHeader('Elegir cliente')} />
+      <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
+        options={opcionesHeader('Nueva Incidencia')} />
+    </Stack.Navigator>
+  );
+}
+
+function ConfigStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ConfigMenu" component={ConfiguracionScreen} />
+      <Stack.Screen name="ConfigSync" component={ConfigSyncScreen}
+        options={opcionesHeader('Sincronización')} />
+      <Stack.Screen name="ConfigUsuarios" component={ConfigUsuariosScreen}
+        options={opcionesHeader('Usuarios')} />
+    </Stack.Navigator>
+  );
+}
+
+function DashboardStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="DashboardInicio" component={DashboardScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// ============================================================
 // Menú lateral: opciones según los permisos del usuario.
+// ============================================================
 function DrawerMenu() {
   const { user } = useAuth();
   const { tema } = useTema();
@@ -40,12 +121,12 @@ function DrawerMenu() {
   const puede = (p) => permisos.includes(p);
 
   const opciones = [];
-  if (puede('dashboard.ver')) opciones.push({ name: 'Dashboard', title: 'Dashboard', screen: <DashboardScreen /> });
-  if (puede('clientes.ver')) opciones.push({ name: 'Clientes', title: 'Clientes', screen: <ClientesScreen /> });
-  if (puede('reportes.saldos')) opciones.push({ name: 'Reportes', title: 'Reportes', screen: <ReportesScreen /> });
-  if (puede('incidencias.ver')) opciones.push({ name: 'Incidencias', title: 'Incidencias', screen: <IncidenciasScreen /> });
+  if (puede('dashboard.ver')) opciones.push({ name: 'Dashboard', title: 'Dashboard', component: DashboardStack });
+  if (puede('clientes.ver')) opciones.push({ name: 'Clientes', title: 'Clientes', component: ClientesStack });
+  if (puede('reportes.saldos')) opciones.push({ name: 'Reportes', title: 'Reportes', component: ReportesStack });
+  if (puede('incidencias.ver')) opciones.push({ name: 'Incidencias', title: 'Incidencias', component: IncidenciasStack });
   if (puede('sync.ejecutar') || puede('config.usuarios')) {
-    opciones.push({ name: 'Configuración', title: 'Configuración', screen: <ConfiguracionScreen /> });
+    opciones.push({ name: 'Configuración', title: 'Configuración', component: ConfigStack });
   }
 
   if (opciones.length === 0) {
@@ -75,73 +156,9 @@ function DrawerMenu() {
       }}
     >
       {opciones.map((o) => (
-        <Drawer.Screen key={o.name} name={o.name} options={{ title: o.title }}>
-          {() => o.screen}
-        </Drawer.Screen>
+        <Drawer.Screen key={o.name} name={o.name} component={o.component} options={{ title: o.title }} />
       ))}
     </Drawer.Navigator>
-  );
-}
-
-function MainNavigator() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Main" component={DrawerMenu} />
-      <Stack.Screen name="ClienteDetalle" component={ClienteDetalleScreen}
-        options={({ route }) => ({
-          headerShown: true,
-          headerStyle,
-          headerTintColor,
-          headerTitleStyle,
-          headerRight: () => <HeaderButtons />,
-          title: route.params?.ter_deno || 'Cliente'
-        })} />
-      <Stack.Screen name="IncidenciasCliente" component={IncidenciasClienteScreen}
-        options={({ route }) => ({
-          headerShown: true,
-          headerStyle,
-          headerTintColor,
-          headerTitleStyle,
-          headerRight: () => <HeaderButtons />,
-          title: `Incidencias: ${route.params?.ter_deno || route.params?.ter_cote || ''}`
-        })} />
-      <Stack.Screen name="ElegirCliente" component={ElegirClienteScreen}
-        options={{
-          headerShown: true,
-          headerStyle,
-          headerTintColor,
-          headerTitleStyle,
-          headerRight: () => <HeaderButtons />,
-          title: 'Elegir cliente'
-        }} />
-      <Stack.Screen name="ConfigSync" component={ConfigSyncScreen}
-        options={{
-          headerShown: true,
-          headerStyle,
-          headerTintColor,
-          headerTitleStyle,
-          headerRight: () => <HeaderButtons />,
-          title: 'Sincronización'
-        }} />
-      <Stack.Screen name="ConfigUsuarios" component={ConfigUsuariosScreen}
-        options={{
-          headerShown: true,
-          headerStyle,
-          headerTintColor,
-          headerTitleStyle,
-          headerRight: () => <HeaderButtons />,
-          title: 'Usuarios'
-        }} />
-      <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
-        options={{
-          headerShown: true,
-          headerStyle,
-          headerTintColor,
-          headerTitleStyle,
-          headerRight: () => <HeaderButtons />,
-          title: 'Nueva Incidencia'
-        }} />
-    </Stack.Navigator>
   );
 }
 
@@ -158,7 +175,7 @@ function AppNavigator() {
 
   return (
     <NavigationContainer>
-      {token ? <MainNavigator /> : <LoginScreen />}
+      {token ? <DrawerMenu /> : <LoginScreen />}
     </NavigationContainer>
   );
 }

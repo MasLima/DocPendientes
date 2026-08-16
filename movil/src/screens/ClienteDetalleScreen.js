@@ -12,6 +12,13 @@ function formatMoneda(valor) {
   });
 }
 
+function estadoTexto(inc_estc) {
+  if (inc_estc === 1) return 'Registrada';
+  if (inc_estc === 2) return 'En proceso';
+  if (inc_estc === 3) return 'Resuelta';
+  return 'Desconocido';
+}
+
 export default function ClienteDetalleScreen({ route, navigation }) {
   const { ter_cote, ter_deno } = route.params;
   const { token } = useAuth();
@@ -39,7 +46,7 @@ export default function ClienteDetalleScreen({ route, navigation }) {
     return <View style={styles.container}><Text style={styles.vacio}>Cargando...</Text></View>;
   }
 
-  const { cliente, resumen, documentos } = data;
+  const { cliente, resumen, documentos, ultima_incidencia } = data;
 
   return (
     <ScrollView
@@ -64,6 +71,21 @@ export default function ClienteDetalleScreen({ route, navigation }) {
         {resumen.saldo_USD ? (
           <Text style={styles.resumenLinea}>Saldo US$ <Text style={styles.resumenValor}>{formatMoneda(resumen.saldo_USD)}</Text></Text>
         ) : null}
+      </View>
+
+      <View style={styles.resumen}>
+        <Text style={styles.resumenTitulo}>Última incidencia registrada</Text>
+        {ultima_incidencia ? (
+          <>
+            <Text style={styles.resumenLinea}>Fecha: <Text style={styles.resumenValor}>{ultima_incidencia.fe_regi}</Text></Text>
+            <Text style={styles.resumenLinea} numberOfLines={3}>
+              Detalle: <Text style={styles.resumenValor}>{ultima_incidencia.inc_desc || '-'}</Text>
+            </Text>
+            <Text style={styles.resumenLinea}>Estado: <Text style={styles.resumenValor}>{estadoTexto(ultima_incidencia.inc_estc)}</Text></Text>
+          </>
+        ) : (
+          <Text style={styles.resumenLinea}>Sin incidencias registradas</Text>
+        )}
       </View>
 
       <TouchableOpacity

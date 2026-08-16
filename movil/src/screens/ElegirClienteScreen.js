@@ -46,7 +46,7 @@ export default function ElegirClienteScreen({ navigation }) {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.item}
-            onPress={() => navigation.navigate('Incidencias', {
+            onPress={() => navigation.navigate('IncidenciasLista', {
               filtroCliente: { ter_cote: item.ter_cote, ter_deno: item.ter_deno }
             })}
           >

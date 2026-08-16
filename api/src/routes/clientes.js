@@ -72,7 +72,16 @@ router.get('/:codigo', async (req, res) => {
       { total_documentos: 0, total_vencidos: 0 }
     );
 
-    res.json({ cliente: cli[0], resumen, documentos: docs });
+    const [ultimaInc] = await pool.query(
+      `SELECT inc_codi, inc_desc, fe_regi, inc_estc
+       FROM incidencias
+       WHERE ter_cote = ? AND fe_regi IS NOT NULL
+       ORDER BY fe_regi DESC, inc_codi DESC
+       LIMIT 1`,
+      [req.params.codigo]
+    );
+
+    res.json({ cliente: cli[0], resumen, documentos: docs, ultima_incidencia: ultimaInc[0] || null });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error interno del servidor' });
