@@ -1,28 +1,5 @@
 name: Deploy
 
-# ============================================================
-# DESPLIEGUE AUTOMATICO (generico)
-#
-# Se ejecuta al hacer push a 'main' (o PR). Hace:
-#   1. Instala dependencias de la API y de la app movil/web
-#   2. Verifica que la API arranca (smoke test)
-#   3. Compila la version web (dist/)
-#   4. Sube la web y el backend a un servidor (paso DESPLIEGUE)
-#
-# Para ACTIVAR el paso de despliegue real, configurar en GitHub:
-#   Settings > Secrets and variables > Actions > New repository secret
-#   - SSH_HOST     (IP o dominio del servidor de produccion)
-#   - SSH_USER     (usuario SSH)
-#   - SSH_PORT     (22 normalmente)
-#   - SSH_KEY      (clave privada SSH, formato PEM)
-#   - DEPLOY_PATH  (ruta en el servidor, ej: /var/www/cobranza)
-# Y cambiar el valor de `workflow_dispatch` inputs o descomentar el paso
-# "DESPLIEGUE: copiar al servidor" (ver docs/07_despliegue.md).
-#
-# Si NO se definen los secretos, el workflow igual compila y publica
-# los artefactos (build web + api) como descargables.
-# ============================================================
-
 on:
   push:
     branches: [main]
@@ -32,40 +9,37 @@ jobs:
   build:
     name: Compilar y verificar
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout del codigo
         uses: actions/checkout@v4
 
-      # ---------- API ----------
       - name: Instalar dependencias de la API
         working-directory: api
         run: npm ci
 
-      - name: Smoke test de la API (arranca y responde /health)
+      - name: Smoke test de la API
         working-directory: api
         run: |
           node src/server.js &
           sleep 8
           curl -s http://localhost:3000/api/health || exit 1
 
-      # ---------- WEB (Expo) ----------
       - name: Instalar dependencias de la app
         working-directory: movil
         run: npm ci
 
-      - name: Compilar la version web (dist/)
+      - name: Compilar la version web
         working-directory: movil
         run: npx expo export --platform web
 
-      - name: Empaquetar artefacto web
+      - name: Subir artefacto web
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: movil/dist
           if-no-files-found: error
 
-      - name: Empaquetar artefacto api
+      - name: Subir artefacto api
         uses: actions/upload-artifact@v4
         with:
           name: api-src
@@ -75,57 +49,41 @@ jobs:
           if-no-files-found: error
 
   deploy:
-    name: DESPLIEGUE al servidor
+    name: Despliegue al servidor
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    environment: production
     env:
-      # GitHub NO permite usar secrets en 'if:' directamente;
-      # se exponen como variables de entorno del job.
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
-      SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-
+      SSH_KEY: ${{ secrets.SSH_KEY }}
     steps:
       - name: Checkout del codigo
         uses: actions/checkout@v4
 
-      # La web ya viene compilada; aqui se descargan los artefactos
-      # y se copian al servidor via rsync/ssh.
+      - name: Aviso de configuracion pendiente
+        if: env.SSH_HOST == '' || env.SSH_HOST == null
+        run: |
+          echo "Secretos de despliegue no definidos."
+          echo "Compilacion OK, artefactos publicados."
+          echo "Para activar el despliegue ver docs/07_despliegue.md"
+
       - name: Configurar clave SSH
-        if: env.SSH_HOST != ''
-        env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
+        if: env.SSH_HOST != '' && env.SSH_HOST != null
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -p "${SSH_PORT:-22}" "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      # ---------- DESPLIEGUE: WEB (estaticos) ----------
-      # Destino tipico: nginx sirve la carpeta, ej. /var/www/cobranza/web
-      - name: DESPLIEGUE: web estatica
-        if: env.SSH_HOST != ''
+      - name: Desplegar web estatica
+        if: env.SSH_HOST != '' && env.SSH_HOST != null
         run: |
-          scp -P "$SSH_PORT" -r movil/dist/* "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/web/"
+          scp -P "${SSH_PORT:-22}" -r movil/dist/* "${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/web/"
 
-      # ---------- DESPLIEGUE: API (backend) ----------
-      # Destino tipico: /var/www/cobranza/api ; luego se relanza con pm2
-      # o systemd (ajustar a la configuracion real del servidor).
-      - name: DESPLIEGUE: API y recarga con PM2
-        if: env.SSH_HOST != ''
+      - name: Desplegar API y relanzar con PM2
+        if: env.SSH_HOST != '' && env.SSH_HOST != null
         run: |
-          ssh -p "$SSH_PORT" "${SSH_USER}@${SSH_HOST}" "
-            cd ${DEPLOY_PATH}/api && git pull origin main || true && npm ci --omit=dev && npm run sync && pm2 restart cobranza-api || pm2 start src/server.js --name cobranza-api
-          "
-
-      - name: Estado final del despliegue
-        if: env.SSH_HOST != ''
-        run: |
-          ssh -p "$SSH_PORT" "${SSH_USER}@${SSH_HOST}" "pm2 status || true"
-
-      - name: Aviso de configuracion pendiente
-        if: env.SSH_HOST == ''
-        run: echo "Secretos de despliegue no definidos. Compilacion OK, artefactos publicados. Ver docs/07_despliegue.md"
+          ssh -p "${SSH_PORT:-22}" "${SSH_USER}@${SSH_HOST}" "cd ${DEPLOY_PATH}/api && git pull origin main || true && npm ci --omit=dev && pm2 restart cobranza-api || pm2 start src/server.js --name cobranza-api"

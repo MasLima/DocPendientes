@@ -12,8 +12,6 @@ app (web + API) al servidor de producción.
 | `build` | Instala dependencias (API y app), verifica que la API arranca (smoke test con `/api/health`) y compila la versión **web** a `dist/`. Publica la web y el backend como **artefactos** descargables. |
 | `deploy` | **Desactivado** hasta que definas los secretos de GitHub. Solo se ejecuta si `SSH_HOST` existe. Copia la web (scp) y la API al servidor y relanza con **PM2**. |
 
-El workflow está **pensado para un VPS Linux** (Ubuntu/Debian) con SSH.
-
 ## Cómo activarlo (cuando tengas el servidor)
 
 ### 1. Preparar el servidor (una sola vez)
@@ -81,7 +79,8 @@ git push origin main
 En GitHub → pestaña **Actions** verás el workflow ejecutándose. Al terminar:
 - La web queda en `https://miempresa.com`
 - La API responde en `https://miempresa.com/api/health`
-- El sync con el ERP corre al desplegar (`npm run sync`)
+- El sync con el ERP se programa aparte (diario) o se corre manualmente
+  con `npm run sync` en el servidor (ver `05_produccion.md`).
 
 ## Despliegue manual (alternativa)
 
@@ -132,6 +131,6 @@ editar codigo → git commit → git push origin main
 - El workflow hace `git pull` en el servidor para la API; por eso el servidor
   necesita acceso de **solo lectura** al repositorio (o usar el artefacto
   `api-src` y reemplazar los archivos con scp).
-- Si el ERP no es accesible desde el servidor de despliegue, quitar
-  `npm run sync` de la línea de despliegue y programarlo por separado
-  (ver `05_produccion.md`).
+- El sync con el ERP (`npm run sync`) **no** se incluye en el deploy para no
+  bloquear el despliegue si el ERP no es accesible; se programa aparte con el
+  Programador de tareas o cron (ver `05_produccion.md`).
