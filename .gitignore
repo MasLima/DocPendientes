@@ -1,0 +1,36 @@
+# ===== Dependencias =====
+node_modules/
+
+# ===== Backend (api) =====
+api/.env
+api/*.log
+api/npm-debug.*
+
+# ===== Frontend (movil) =====
+movil/node_modules/
+movil/.expo/
+movil/dist/
+movil/web-build/
+movil/expo.log
+movil/web.log
+movil/.metro-health-check*
+
+# ===== Base de datos / utilidades =====
+*.sql.bak
+
+# ===== Sensible / secretos =====
+*.pem
+*.p12
+*.p8
+*.key
+*.jks
+*.mobileprovision
+
+# ===== Sistema =====
+.DS_Store
+Thumbs.db
+*.log
+
+# ===== Datos de referencia (grandes/binarios) =====
+definicion_tablas.xlsx
+mplgen006.xls
