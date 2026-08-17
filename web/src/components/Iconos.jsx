@@ -1,9 +1,12 @@
 // Iconos SVG estilo Ionicons (los mismos que usa el móvil con @expo/vector-icons).
 // Tamaño y color controlados por props; stroke=currentColor para heredar el color.
+// Ionicons usa viewBox 512 con strokeWidth 32; sin ese grosor los trazos
+// quedan invisibles al escalar a 18-22px.
 
 const base = {
   fill: 'none',
   stroke: 'currentColor',
+  strokeWidth: 32,
   strokeLinecap: 'round',
   strokeLinejoin: 'round'
 };
@@ -67,6 +70,40 @@ export function SettingsIcon({ size = 20 }) {
     <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
       <path d="M262.29 192.31a64 64 0 1 0 57.4 57.4 64 64 0 0 0-57.4-57.4zM416.22 256a160.32 160.32 0 0 0-2.56-25.44l32.61-24.4a12.51 12.51 0 0 0 2.83-17.4l-34.32-59.46a12.5 12.5 0 0 0-16.9-4.92l-38.5 16.85a160.49 160.49 0 0 0-21.95-12.68l-6.02-41.72A12.51 12.51 0 0 0 317.33 96h-68.66a12.51 12.51 0 0 0-12.44 10.84l-6.02 41.72a160.49 160.49 0 0 0-21.95 12.68l-38.5-16.85a12.5 12.5 0 0 0-16.9 4.92l-34.32 59.46a12.51 12.51 0 0 0 2.83 17.4l32.61 24.4a160.32 160.32 0 0 0-2.56 25.44 160.32 160.32 0 0 0 2.56 25.44l-32.61 24.4a12.51 12.51 0 0 0-2.83 17.4l34.32 59.46a12.5 12.5 0 0 0 16.9 4.92l38.5-16.85a160.49 160.49 0 0 0 21.95 12.68l6.02 41.72A12.51 12.51 0 0 0 248.67 416h68.66a12.51 12.51 0 0 0 12.44-10.84l6.02-41.72a160.49 160.49 0 0 0 21.95-12.68l38.5 16.85a12.5 12.5 0 0 0 16.9-4.92l34.32-59.46a12.51 12.51 0 0 0-2.83-17.4l-32.61-24.4a160.32 160.32 0 0 0 2.56-25.44z" />
       <circle cx="256" cy="256" r="32" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function DocumentIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M216 464h-96a48 48 0 0 1-48-48V96a48 48 0 0 1 48-48h160l112 112v256a48 48 0 0 1-48 48z" />
+      <path d="M216 48v96a16 16 0 0 0 16 16h96" />
+      <line x1="144" y1="216" x2="320" y2="216" />
+      <line x1="144" y1="272" x2="320" y2="272" />
+      <line x1="144" y1="328" x2="320" y2="328" />
+    </svg>
+  );
+}
+
+export function CalendarIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <rect x="48" y="80" width="416" height="384" rx="48" />
+      <line x1="128" y1="48" x2="128" y2="112" />
+      <line x1="384" y1="48" x2="384" y2="112" />
+      <line x1="128" y1="192" x2="384" y2="192" />
+      <line x1="128" y1="272" x2="384" y2="272" />
+      <line x1="128" y1="352" x2="384" y2="352" />
+    </svg>
+  );
+}
+
+export function TimeIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M256 48a208 208 0 1 0 208 208A208 208 0 0 0 256 48z" />
+      <path d="M256 144v112l80 56" />
     </svg>
   );
 }

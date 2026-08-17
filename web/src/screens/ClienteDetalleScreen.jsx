@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
+import { DocumentIcon, CalendarIcon, TimeIcon } from '../components/Iconos';
 
 function fmt(v) {
   return Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,63 +43,119 @@ function hoyISO() {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
-// ---------- Cálculo del cronograma de vencimientos ----------
+// ---------- Cronograma de vencimientos (por documento) ----------
+// Para cada documento se ubica su monto en: Vencidos, un rango de
+// vencimiento o Mayores al Fecha Final.
 function calcularCronograma(documentos, cantRangos, diasRango, fechaInicialISO) {
   const ini = parseFecha(fechaInicialISO);
-  const totales = { vencidos: 0, rangos: [], mayores: 0 };
+  const resultado = { rangos: [], filas: [] };
 
-  if (!ini || cantRangos < 1 || diasRango < 1) return totales;
+  if (!ini || cantRangos < 1 || diasRango < 1) return resultado;
 
   for (let i = 0; i < cantRangos; i++) {
     const dIni = sumarDias(ini, i * diasRango);
     const dFin = sumarDias(ini, i * diasRango + diasRango - 1);
-    totales.rangos.push({ dIni, dFin, label: `${fmtFecha(dIni)} - ${fmtFecha(dFin)}`, total: 0 });
+    resultado.rangos.push({ dIni, dFin, label: `${fmtFecha(dIni)} - ${fmtFecha(dFin)}` });
   }
-  const finUltimo = totales.rangos[cantRangos - 1].dFin;
+  const finUltimo = resultado.rangos[cantRangos - 1].dFin;
 
   for (const d of documentos) {
     const feve = parseFecha(d.fecha_vencimiento);
-    if (!feve) continue;
+    const fila = { doc: d, vencidos: 0, rangos: [], mayores: 0 };
+    if (!feve) {
+      fila.sineFecha = true;
+      resultado.filas.push(fila);
+      continue;
+    }
     const monto = Number(d.saldo || 0);
 
     if (feve < ini) {
-      totales.vencidos += monto;
+      fila.vencidos = monto;
     } else if (feve > finUltimo) {
-      totales.mayores += monto;
+      fila.mayores = monto;
     } else {
       const idx = Math.floor(diasEntre(feve, ini) / diasRango);
       const i = Math.min(Math.max(idx, 0), cantRangos - 1);
-      totales.rangos[i].total += monto;
+      const arr = resultado.rangos.map(() => 0);
+      arr[i] = monto;
+      fila.rangos = arr;
     }
+    resultado.filas.push(fila);
   }
 
-  return totales;
+  return resultado;
 }
 
-// ---------- Antigüedad de la deuda (rangos por días vencido) ----------
-const RANGOS_ANTIGUEDAD = [
-  { min: -Infinity, max: 0, label: 'Al día' },
-  { min: 1, max: 30, label: '1 - 30 días' },
-  { min: 31, max: 60, label: '31 - 60 días' },
-  { min: 61, max: 90, label: '61 - 90 días' },
-  { min: 91, max: 120, label: '91 - 120 días' },
-  { min: 121, max: 180, label: '121 - 180 días' },
-  { min: 181, max: Infinity, label: 'Más de 180 días' }
-];
+// ---------- Antigüedad de la deuda (por documento) ----------
+// Los rangos se basan en los DIAS VENCIDOS de cada documento.
+function calcularAntiguedad(documentos, cantRangos, diasRango) {
+  const resultado = { rangos: [], filas: [] };
 
-function calcularAntiguedad(documentos) {
-  const filas = RANGOS_ANTIGUEDAD.map((r) => ({ ...r, total: 0 }));
+  if (cantRangos < 1 || diasRango < 1) return resultado;
+
+  for (let i = 0; i < cantRangos; i++) {
+    const min = i * diasRango + 1;
+    const max = (i + 1) * diasRango;
+    resultado.rangos.push({ min, max, label: `${min} - ${max} días` });
+  }
+  const maxUltimo = resultado.rangos[cantRangos - 1].max;
+
   for (const d of documentos) {
     const monto = Number(d.saldo || 0);
     const dias = Number(d.dias_vencido || 0);
-    for (const r of filas) {
-      if (dias >= r.min && dias <= r.max) {
-        r.total += monto;
-        break;
-      }
+    const fila = { doc: d, alDia: 0, rangos: [], mayores: 0 };
+
+    if (dias <= 0) {
+      fila.alDia = monto;
+    } else if (dias > maxUltimo) {
+      fila.mayores = monto;
+    } else {
+      const idx = Math.floor((dias - 1) / diasRango);
+      const i = Math.min(Math.max(idx, 0), cantRangos - 1);
+      const arr = resultado.rangos.map(() => 0);
+      arr[i] = monto;
+      fila.rangos = arr;
     }
+    resultado.filas.push(fila);
   }
-  return filas;
+
+  return resultado;
+}
+
+// ---------- Columnas comunes de la tabla de documentos ----------
+const COL_DOC = 'Documento';
+const COL_NRO = 'Nro';
+const COL_EST = 'Estado';
+const COL_CONDP = 'Cond. Pago';
+const COL_IMPO = 'Importe Total';
+const COL_AMORT = 'Amortiza';
+const COL_SALDO = 'Saldo';
+const COL_BANCO = 'Banco';
+const COL_LETRA = 'N° Letra';
+const COL_VEND = 'Vendedor';
+
+function celdasBase(d) {
+  return (
+    <>
+      <td className="mono">{d.tipo_documento_desc || d.cob_codo}</td>
+      <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
+      <td className="mono">{d.estado_descripcion}</td>
+      <td className="mono">{d.cond_pago_desc}</td>
+      <td className="mono">{d.moneda_signo} {fmt(d.importe_original)}</td>
+      <td className="mono">{d.moneda_signo} {fmt(d.pagado)}</td>
+      <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>{d.moneda_signo} {fmt(d.saldo)}</td>
+    </>
+  );
+}
+
+function celdasFinales(d) {
+  return (
+    <>
+      <td className="mono">{d.banco_desc || (d.cob_banc ? d.cob_banc : '')}</td>
+      <td className="mono">{d.cob_nuni || ''}</td>
+      <td className="mono">{d.vendedor_nombre || ''}</td>
+    </>
+  );
 }
 
 // ---------- Componente principal ----------
@@ -114,6 +171,11 @@ export default function ClienteDetalleScreen() {
   const [cantRangos, setCantRangos] = useState(4);
   const [diasRango, setDiasRango] = useState(30);
   const [fechaInicial, setFechaInicial] = useState(hoyISO());
+
+  // Parámetros de la antigüedad de la deuda
+  const [tipoRango, setTipoRango] = useState('mensual'); // semanal|quincenal|mensual|otro
+  const [diasRangoAnti, setDiasRangoAnti] = useState(30);
+  const [cantRangosAnti, setCantRangosAnti] = useState(4);
 
   const cargar = useCallback(async () => {
     try {
@@ -133,9 +195,15 @@ export default function ClienteDetalleScreen() {
   );
 
   const antiguedad = useMemo(
-    () => data ? calcularAntiguedad(data.documentos) : null,
-    [data]
+    () => data ? calcularAntiguedad(data.documentos, cantRangosAnti, diasRangoAnti) : null,
+    [data, cantRangosAnti, diasRangoAnti]
   );
+
+  const seleccionarTipoRango = (tipo) => {
+    setTipoRango(tipo);
+    const dias = { semanal: 7, quincenal: 15, mensual: 30 }[tipo];
+    if (dias) setDiasRangoAnti(dias);
+  };
 
   if (error) return <div className="vacio" style={{ color: 'var(--rojo)' }}>{error}</div>;
   if (!data) return <div className="vacio">Cargando...</div>;
@@ -187,27 +255,27 @@ export default function ClienteDetalleScreen() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <button
           className="btn btn-ghost"
-          style={{ background: pestana === 'pendientes' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'pendientes' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'pendientes' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'pendientes' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
           onClick={() => setPestana('pendientes')}
         >
-          Documentos Pendientes
+          <DocumentIcon size={18} /> Documentos Pendientes
         </button>
         <button
           className="btn btn-ghost"
-          style={{ background: pestana === 'cronograma' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'cronograma' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'cronograma' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'cronograma' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
           onClick={() => setPestana('cronograma')}
         >
-          Cronograma de Vencimientos
+          <CalendarIcon size={18} /> Cronograma de Vencimientos
         </button>
         <button
           className="btn btn-ghost"
-          style={{ background: pestana === 'antiguedad' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'antiguedad' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'antiguedad' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'antiguedad' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
           onClick={() => setPestana('antiguedad')}
         >
-          Antigüedad de la Deuda
+          <TimeIcon size={18} /> Antigüedad de la Deuda
         </button>
       </div>
 
@@ -221,31 +289,16 @@ export default function ClienteDetalleScreen() {
               <table className="tabla">
                 <thead>
                   <tr>
-                    <th>Documento</th>
-                    <th>Nro</th>
-                    <th>Estado</th>
-                    <th>Cond. Pago</th>
-                    <th>Importe Total</th>
-                    <th>Amortiza</th>
-                    <th>Saldo</th>
-                    <th>Banco</th>
-                    <th>N° Letra</th>
-                    <th>Vendedor</th>
+                    <th>{COL_DOC}</th><th>{COL_NRO}</th><th>{COL_EST}</th><th>{COL_CONDP}</th>
+                    <th>{COL_IMPO}</th><th>{COL_AMORT}</th><th>{COL_SALDO}</th>
+                    <th>{COL_BANCO}</th><th>{COL_LETRA}</th><th>{COL_VEND}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {documentos.map((d) => (
                     <tr key={`${d.cob_tivo}-${d.cob_nuvo}`}>
-                      <td className="mono">{d.tipo_documento_desc || d.cob_codo}</td>
-                      <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
-                      <td className="mono">{d.estado_descripcion}</td>
-                      <td className="mono">{d.cond_pago_desc}</td>
-                      <td className="mono">{d.moneda_signo} {fmt(d.importe_original)}</td>
-                      <td className="mono">{d.moneda_signo} {fmt(d.pagado)}</td>
-                      <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>{d.moneda_signo} {fmt(d.saldo)}</td>
-                      <td className="mono">{d.banco_desc || (d.cob_banc ? d.cob_banc : '')}</td>
-                      <td className="mono">{d.cob_nuni || ''}</td>
-                      <td className="mono">{d.vendedor_nombre || ''}</td>
+                      {celdasBase(d)}
+                      {celdasFinales(d)}
                     </tr>
                   ))}
                 </tbody>
@@ -285,21 +338,26 @@ export default function ClienteDetalleScreen() {
               <table className="tabla">
                 <thead>
                   <tr>
+                    <th>{COL_DOC}</th><th>{COL_NRO}</th><th>{COL_EST}</th><th>{COL_CONDP}</th>
+                    <th>{COL_IMPO}</th><th>{COL_AMORT}</th><th>{COL_SALDO}</th>
                     <th>Vencidos</th>
-                    {cronograma.rangos.map((r, i) => (
-                      <th key={i} className="mono">{r.label}</th>
-                    ))}
+                    {cronograma.rangos.map((r, i) => <th key={i} className="mono">{r.label}</th>)}
                     <th>Mayores al Fecha Final</th>
+                    <th>{COL_BANCO}</th><th>{COL_LETRA}</th><th>{COL_VEND}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td className="mono" style={{ color: 'var(--rojo)', fontWeight: 700 }}>{fmt(cronograma.vencidos)}</td>
-                    {cronograma.rangos.map((r, i) => (
-                      <td key={i} className="mono">{fmt(r.total)}</td>
-                    ))}
-                    <td className="mono" style={{ fontWeight: 700 }}>{fmt(cronograma.mayores)}</td>
-                  </tr>
+                  {cronograma.filas.map((f, idx) => (
+                    <tr key={idx}>
+                      {celdasBase(f.doc)}
+                      <td className="mono" style={{ color: 'var(--rojo)', fontWeight: 700 }}>{f.vencidos ? fmt(f.vencidos) : ''}</td>
+                      {cronograma.rangos.map((r, i) => (
+                        <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
+                      ))}
+                      <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
+                      {celdasFinales(f.doc)}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -309,7 +367,40 @@ export default function ClienteDetalleScreen() {
 
       {pestana === 'antiguedad' && (
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)', marginBottom: 8 }}>Antigüedad de la deuda</div>
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="mutado" style={{ marginBottom: 8 }}>Antigüedad de la deuda (por días vencidos)</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+              <span className="mutado">Rango por:</span>
+              {[
+                { clave: 'semanal', texto: 'Semanal' },
+                { clave: 'quincenal', texto: 'Quincenal' },
+                { clave: 'mensual', texto: 'Mensual' },
+                { clave: 'otro', texto: 'Otro' }
+              ].map((o) => (
+                <button
+                  key={o.clave}
+                  className="btn btn-ghost"
+                  style={{ border: '1px solid var(--borde)', background: tipoRango === o.clave ? 'var(--primario)' : 'var(--tarjeta)', color: tipoRango === o.clave ? '#fff' : 'var(--texto)' }}
+                  onClick={() => seleccionarTipoRango(o.clave)}
+                >
+                  {o.texto}
+                </button>
+              ))}
+              {tipoRango === 'otro' && (
+                <label className="mutado">
+                  Días por Rango{' '}
+                  <input className="input" type="number" min="1" max="365" style={{ width: 90 }} value={diasRangoAnti}
+                    onChange={(e) => setDiasRangoAnti(Math.max(1, Number(e.target.value) || 1))} />
+                </label>
+              )}
+              <label className="mutado">
+                Cantidad de Rangos{' '}
+                <input className="input" type="number" min="1" max="30" style={{ width: 90 }} value={cantRangosAnti}
+                  onChange={(e) => setCantRangosAnti(Math.max(1, Number(e.target.value) || 1))} />
+              </label>
+            </div>
+          </div>
+
           {documentos.length === 0 ? (
             <div className="vacio">Cliente sin documentos pendientes</div>
           ) : (
@@ -317,17 +408,26 @@ export default function ClienteDetalleScreen() {
               <table className="tabla">
                 <thead>
                   <tr>
-                    {antiguedad.map((r) => (
-                      <th key={r.label}>{r.label}</th>
-                    ))}
+                    <th>{COL_DOC}</th><th>{COL_NRO}</th><th>{COL_EST}</th><th>{COL_CONDP}</th>
+                    <th>{COL_IMPO}</th><th>{COL_AMORT}</th><th>{COL_SALDO}</th>
+                    <th>Al día</th>
+                    {antiguedad.rangos.map((r, i) => <th key={i} className="mono">{r.label}</th>)}
+                    <th>Mayores a {antiguedad.rangos.length ? antiguedad.rangos[antiguedad.rangos.length - 1].max : ''} días</th>
+                    <th>{COL_BANCO}</th><th>{COL_LETRA}</th><th>{COL_VEND}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    {antiguedad.map((r) => (
-                      <td key={r.label} className="mono">{fmt(r.total)}</td>
-                    ))}
-                  </tr>
+                  {antiguedad.filas.map((f, idx) => (
+                    <tr key={idx}>
+                      {celdasBase(f.doc)}
+                      <td className="mono">{f.alDia ? fmt(f.alDia) : ''}</td>
+                      {antiguedad.rangos.map((r, i) => (
+                        <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
+                      ))}
+                      <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
+                      {celdasFinales(f.doc)}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
