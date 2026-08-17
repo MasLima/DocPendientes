@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
-import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon } from '../components/Iconos';
+import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, EyeIcon } from '../components/Iconos';
 import Exportar from '../components/Exportar';
 
 function fmt(v) {
@@ -133,7 +133,6 @@ const COL_AMORTIZA = 'Amortiza';
 const COL_SALDO = 'Saldo';
 const COL_BANCO = 'Banco';
 const COL_NROUNICO = 'Nro. Único';
-const COL_VEND = 'Vendedor';
 
 function celdasBase(d) {
   return (
@@ -159,15 +158,6 @@ function celdasPendientes(d) {
       <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>{d.moneda_signo} {fmt(d.saldo)}</td>
       <td className="mono">{d.banco_desc || ''}</td>
       <td className="mono">{d.cob_nuni || ''}</td>
-      <td className="mono">{d.vendedor_nombre || ''}</td>
-    </>
-  );
-}
-
-function celdasFinales(d) {
-  return (
-    <>
-      <td className="mono">{d.vendedor_nombre || ''}</td>
     </>
   );
 }
@@ -182,8 +172,7 @@ function filaPendientesExportar(d) {
     `${d.moneda_signo} ${fmt(d.pagado)}`,
     `${d.moneda_signo} ${fmt(d.saldo)}`,
     d.banco_desc || '',
-    d.cob_nuni || '',
-    d.vendedor_nombre || ''
+    d.cob_nuni || ''
   ];
 }
 
@@ -239,11 +228,19 @@ export default function ClienteDetalleScreen() {
 
   const { cliente, resumen, documentos, ultima_incidencia } = data;
 
-  const colPendientes = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_IMPORTE, COL_AMORTIZA, COL_SALDO, COL_BANCO, COL_NROUNICO, COL_VEND];
+  const infoExportar = [
+    ['Cliente', `${cliente.ter_deno}`],
+    ['RUC', cliente.ter_rucn || '-'],
+    ['Documentos pendientes', String(resumen.total_documentos)],
+    ['Saldos', `${resumen.saldo_PEN ? `S/. ${fmt(resumen.saldo_PEN)}` : ''}${resumen.saldo_PEN && resumen.saldo_USD ? ' | ' : ''}${resumen.saldo_USD ? `US$ ${fmt(resumen.saldo_USD)}` : ''}`],
+    ['Vendedor', cliente.vendedor_nombre || cliente.ter_core || '-']
+  ];
+
+  const colPendientes = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_IMPORTE, COL_AMORTIZA, COL_SALDO, COL_BANCO, COL_NROUNICO];
   const filasPendientes = documentos.map((d) => filaPendientesExportar(d));
 
   const colCronograma = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, 'Vencidos',
-    ...cronograma.rangos.map((r) => r.label), `Mayor a ${cronograma.rangos.length ? fmtFecha(cronograma.rangos[cronograma.rangos.length - 1].dFin) : ''}`, COL_VEND];
+    ...cronograma.rangos.map((r) => r.label), `Mayor a ${cronograma.rangos.length ? fmtFecha(cronograma.rangos[cronograma.rangos.length - 1].dFin) : ''}`];
   const filasCronograma = cronograma.filas.map((f) => [
     f.doc.tipo_documento_desc || f.doc.cob_codo,
     `${f.doc.cob_seri}-${f.doc.cob_nums}`,
@@ -252,12 +249,11 @@ export default function ClienteDetalleScreen() {
     `${f.doc.moneda_signo} ${fmt(f.doc.saldo)}`,
     f.vencidos ? fmt(f.vencidos) : '',
     ...cronograma.rangos.map((r, i) => (f.rangos[i] ? fmt(f.rangos[i]) : '')),
-    f.mayores ? fmt(f.mayores) : '',
-    f.doc.vendedor_nombre || ''
+    f.mayores ? fmt(f.mayores) : ''
   ]);
 
   const colAntiguedad = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, 'Al día',
-    ...antiguedad.rangos.map((r) => r.label), `Mayores a ${antiguedad.rangos.length ? antiguedad.rangos[antiguedad.rangos.length - 1].max : ''} días`, COL_VEND];
+    ...antiguedad.rangos.map((r) => r.label), `Mayores a ${antiguedad.rangos.length ? antiguedad.rangos[antiguedad.rangos.length - 1].max : ''} días`];
   const filasAntiguedad = antiguedad.filas.map((f) => [
     f.doc.tipo_documento_desc || f.doc.cob_codo,
     `${f.doc.cob_seri}-${f.doc.cob_nums}`,
@@ -266,8 +262,7 @@ export default function ClienteDetalleScreen() {
     `${f.doc.moneda_signo} ${fmt(f.doc.saldo)}`,
     f.alDia ? fmt(f.alDia) : '',
     ...antiguedad.rangos.map((r, i) => (f.rangos[i] ? fmt(f.rangos[i]) : '')),
-    f.mayores ? fmt(f.mayores) : '',
-    f.doc.vendedor_nombre || ''
+    f.mayores ? fmt(f.mayores) : ''
   ]);
 
   // Resumen por pestaña
@@ -325,8 +320,8 @@ export default function ClienteDetalleScreen() {
         <button className="btn" onClick={() => navigate(`/incidencias/nueva?cliente=${cliente.ter_cote}&nombre=${encodeURIComponent(cliente.ter_deno)}`)}>
           + Registrar incidencia
         </button>
-        <button className="btn btn-verde" onClick={() => navigate(`/clientes/${cliente.ter_cote}/incidencias`)}>
-          Ver incidencias
+        <button className="btn btn-verde" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => navigate(`/clientes/${cliente.ter_cote}/incidencias`)}>
+          <EyeIcon size={16} /> Ver incidencias
         </button>
       </div>
 
@@ -365,7 +360,7 @@ export default function ClienteDetalleScreen() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Documentos pendientes</div>
-            {documentos.length > 0 && <Exportar nombreArchivo={`documentos_${cliente.ter_cote}`} columnas={colPendientes} filas={filasPendientes} />}
+            {documentos.length > 0 && <Exportar nombreArchivo={`documentos_${cliente.ter_cote}`} columnas={colPendientes} filas={filasPendientes} titulo="Documentos Pendientes" info={infoExportar} />}
           </div>
           {documentos.length === 0 ? (
             <div className="vacio">Cliente sin documentos pendientes</div>
@@ -418,7 +413,7 @@ export default function ClienteDetalleScreen() {
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <Exportar nombreArchivo={`cronograma_${cliente.ter_cote}`} columnas={colCronograma} filas={filasCronograma} />
+                <Exportar nombreArchivo={`cronograma_${cliente.ter_cote}`} columnas={colCronograma} filas={filasCronograma} titulo="Cronograma de Vencimientos" info={infoExportar} />
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table className="tabla">
@@ -436,7 +431,6 @@ export default function ClienteDetalleScreen() {
                           <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
                         ))}
                         <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
-                        {celdasFinales(f.doc)}
                       </tr>
                     ))}
                   </tbody>
@@ -488,7 +482,7 @@ export default function ClienteDetalleScreen() {
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <Exportar nombreArchivo={`antiguedad_${cliente.ter_cote}`} columnas={colAntiguedad} filas={filasAntiguedad} />
+                <Exportar nombreArchivo={`antiguedad_${cliente.ter_cote}`} columnas={colAntiguedad} filas={filasAntiguedad} titulo="Antigüedad de la Deuda" info={infoExportar} />
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table className="tabla">
@@ -506,7 +500,6 @@ export default function ClienteDetalleScreen() {
                           <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
                         ))}
                         <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
-                        {celdasFinales(f.doc)}
                       </tr>
                     ))}
                   </tbody>
@@ -530,7 +523,7 @@ export default function ClienteDetalleScreen() {
           <div className="card" style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)' }}>Cronograma de vencimientos</div>
-              <Exportar nombreArchivo={`resumen_cronograma_${cliente.ter_cote}`} columnas={resumenCronograma[0]} filas={[resumenCronograma[1]]} />
+              <Exportar nombreArchivo={`resumen_cronograma_${cliente.ter_cote}`} columnas={resumenCronograma[0]} filas={[resumenCronograma[1]]} titulo="Resumen - Cronograma de Vencimientos" info={infoExportar} />
             </div>
             <table className="tabla">
               <thead><tr>{resumenCronograma[0].map((c, i) => <th key={i} className="mono">{c}</th>)}</tr></thead>
@@ -540,7 +533,7 @@ export default function ClienteDetalleScreen() {
           <div className="card" style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)' }}>Antigüedad de la deuda</div>
-              <Exportar nombreArchivo={`resumen_antiguedad_${cliente.ter_cote}`} columnas={resumenAntiguedad[0]} filas={[resumenAntiguedad[1]]} />
+              <Exportar nombreArchivo={`resumen_antiguedad_${cliente.ter_cote}`} columnas={resumenAntiguedad[0]} filas={[resumenAntiguedad[1]]} titulo="Resumen - Antigüedad de la Deuda" info={infoExportar} />
             </div>
             <table className="tabla">
               <thead><tr>{resumenAntiguedad[0].map((c, i) => <th key={i} className="mono">{c}</th>)}</tr></thead>

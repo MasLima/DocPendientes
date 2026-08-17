@@ -86,7 +86,7 @@ export default function IncidenciasScreen() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <h2 style={{ margin: 0, fontSize: 20 }}>Incidencias</h2>
-        <button className="btn btn-verde" onClick={() => navigate('/incidencias/nueva')}>+ Registrar incidencia</button>
+        <button className="btn" onClick={() => navigate('/incidencias/nueva')}>+ Registrar incidencia</button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>

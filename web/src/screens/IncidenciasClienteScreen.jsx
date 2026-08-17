@@ -79,7 +79,7 @@ export default function IncidenciasClienteScreen() {
       </div>
 
       <div style={{ marginBottom: 14 }}>
-        <button className="btn btn-verde" onClick={() => navigate(`/incidencias/nueva?cliente=${codigo}&nombre=${encodeURIComponent(nombre)}`)}>
+        <button className="btn" onClick={() => navigate(`/incidencias/nueva?cliente=${codigo}&nombre=${encodeURIComponent(nombre)}`)}>
           + Registrar incidencia
         </button>
       </div>

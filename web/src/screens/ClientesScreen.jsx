@@ -3,22 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
 import Exportar from '../components/Exportar';
+import { EyeIcon } from '../components/Iconos';
 
 const POR_PAGINA = 100;
 
 export default function ClientesScreen() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [clientes, setClientes] = useState([]);
+  const [vendedores, setVendedores] = useState([]);
   const [busqueda, setBusqueda] = useState('');
+  const [vendedorSel, setVendedorSel] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [pagina, setPagina] = useState(1);
   const [anchoCliente, setAnchoCliente] = useState(280);
 
+  // El vendedor ve solo su cartera: ocultamos columna y filtro de vendedor.
+  const puedeTodos = user?.permisos?.includes('clientes.ver_todos') || false;
+
   const cargar = useCallback(async () => {
     try {
-      const data = await apiGet('/clientes', token);
+      const qs = vendedorSel ? `?vendedor=${encodeURIComponent(vendedorSel)}` : '';
+      const data = await apiGet(`/clientes${qs}`, token);
       setClientes(Array.isArray(data) ? data : data.value || []);
       setError('');
     } catch (err) {
@@ -26,9 +33,18 @@ export default function ClientesScreen() {
     } finally {
       setCargando(false);
     }
-  }, [token]);
+  }, [token, vendedorSel]);
+
+  const cargarVendedores = useCallback(async () => {
+    if (!puedeTodos) return;
+    try {
+      const data = await apiGet('/clientes/vendedores', token);
+      setVendedores(Array.isArray(data) ? data : data.value || []);
+    } catch { /* noop */ }
+  }, [token, puedeTodos]);
 
   useEffect(() => { cargar(); }, [cargar]);
+  useEffect(() => { cargarVendedores(); }, [cargarVendedores]);
 
   // Filtrado en memoria (rapido incluso con 14k filas gracias a useMemo).
   const filtrados = useMemo(() => {
@@ -49,8 +65,8 @@ export default function ClientesScreen() {
     [filtrados, paginaSegura]
   );
 
-  // Volver a la pagina 1 al cambiar la busqueda.
-  useEffect(() => { setPagina(1); }, [busqueda]);
+  // Volver a la pagina 1 al cambiar la busqueda o el vendedor.
+  useEffect(() => { setPagina(1); }, [busqueda, vendedorSel]);
 
   // Redimension de la columna Cliente arrastrando el borde del encabezado.
   const empezarResize = (e) => {
@@ -79,9 +95,17 @@ export default function ClientesScreen() {
           {filtrados.length > 0 && (
             <Exportar
               nombreArchivo="clientes"
-              columnas={['Código', 'Cliente', 'RUC', 'Teléfono', 'Cond. pago']}
-              filas={filtrados.map((c) => [c.ter_cote, c.ter_deno || '', c.ter_rucn || '-', c.ter_fono || '-', c.cond_pago_desc || c.ter_cocp || '-'])}
+              columnas={['Código', 'Cliente', 'RUC', 'Teléfono', 'Cond. pago', ...(puedeTodos ? ['Vendedor'] : [])]}
+              filas={filtrados.map((c) => [c.ter_cote, c.ter_deno || '', c.ter_rucn || '-', c.ter_fono || '-', c.cond_pago_desc || c.ter_cocp || '-', ...(puedeTodos ? [c.vendedor_nombre || c.ter_core || '-'] : [])])}
             />
+          )}
+          {puedeTodos && (
+            <select className="input" style={{ width: 180 }} value={vendedorSel} onChange={(e) => setVendedorSel(e.target.value)}>
+              <option value="">Todos los vendedores</option>
+              {vendedores.map((v) => (
+                <option key={v.ter_cote} value={v.ter_cote}>{v.ter_cote} - {v.ter_deno}</option>
+              ))}
+            </select>
           )}
           <div style={{ position: 'relative', width: 300 }}>
             <input
@@ -126,7 +150,8 @@ export default function ClientesScreen() {
                 <th style={{ width: 110 }}>RUC</th>
                 <th style={{ width: 120 }}>Teléfono</th>
                 <th style={{ width: 150 }}>Cond. pago</th>
-                <th style={{ width: 130 }}></th>
+                {puedeTodos && <th style={{ width: 150 }}>Vendedor</th>}
+                <th style={{ width: 150 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -142,13 +167,14 @@ export default function ClientesScreen() {
                   <td className="mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ter_rucn || '-'}</td>
                   <td style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ter_fono || '-'}</td>
                   <td style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.cond_pago_desc || c.ter_cocp || '-'}</td>
+                  {puedeTodos && <td style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.vendedor_nombre || c.ter_core || '-'}</td>}
                   <td>
                     <button
-                      className="btn"
-                      style={{ padding: '6px 10px', fontSize: 12 }}
+                      className="btn btn-verde"
+                      style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                       onClick={(e) => { e.stopPropagation(); navigate(`/clientes/${c.ter_cote}/incidencias`); }}
                     >
-                      Ver incidencias
+                      <EyeIcon size={14} /> Ver incidencias
                     </button>
                   </td>
                 </tr>

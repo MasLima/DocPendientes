@@ -4,7 +4,8 @@ const pool = require('../config/db');
 // Lista de clientes.
 // - Con permiso 'clientes.ver_todos' (admin/empleado): todos.
 // - Sin el permiso (vendedor): solo los de su cartera (ter_core).
-// - ?q=texto  filtra por nombre o codigo (para buscar al crear incidencias).
+// - ?q=texto          filtra por nombre o codigo (para buscar al crear incidencias).
+// - ?vendedor=codigo  filtra por vendedor (solo para quien ve todos).
 router.get('/', async (req, res) => {
   try {
     const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
@@ -13,6 +14,9 @@ router.get('/', async (req, res) => {
     if (!puedeTodos) {
       where.push('c.ter_core = ?');
       params.push(req.user.ter_cote);
+    } else if (req.query.vendedor) {
+      where.push('c.ter_core = ?');
+      params.push(req.query.vendedor);
     }
     if (req.query.q) {
       where.push('(c.ter_deno LIKE ? OR c.ter_cote LIKE ?)');
@@ -25,13 +29,28 @@ router.get('/', async (req, res) => {
     const limit = req.query.q ? 'LIMIT 100' : '';
     const [rows] = await pool.query(
       `SELECT c.ter_cote, c.ter_deno, c.ter_dire, c.ter_rucn, c.ter_fono, c.ter_cell, c.ter_emai,
-              c.ter_cocp, cp.com_dscp AS cond_pago_desc, c.ter_licr, c.ter_cozo
+              c.ter_cocp, cp.com_dscp AS cond_pago_desc, c.ter_licr, c.ter_cozo,
+              c.ter_core, v.ter_deno AS vendedor_nombre
        FROM clientes c
        LEFT JOIN condiciones_pago cp ON cp.com_cocp = c.ter_cocp
+       LEFT JOIN vendedores v ON v.ter_cote = c.ter_core
        ${sql}
        ORDER BY c.ter_deno
        ${limit}`,
       params
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Lista de vendedores para el filtro de la lista de clientes.
+router.get('/vendedores', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT ter_cote, ter_deno FROM vendedores ORDER BY ter_deno`
     );
     res.json(rows);
   } catch (err) {

@@ -166,7 +166,7 @@ export default function ConfigUsuariosScreen() {
               filas={usuarios.map((u) => [u.use_logi, `${u.use_name || ''} ${u.use_apel || ''}`.trim(), u.rol, `${u.ter_cote}${u.vendedor_nombre ? ` (${u.vendedor_nombre})` : ''}`, u.activo ? 'Activo' : 'Inactivo'])}
             />
           )}
-          <button className="btn btn-verde" onClick={abrirNuevo}>+ Nuevo usuario</button>
+          <button className="btn" onClick={abrirNuevo}>+ Nuevo usuario</button>
         </div>
       </div>
 

@@ -54,9 +54,9 @@ export default function Layout() {
                   padding: '11px 18px',
                   fontSize: 15,
                   fontWeight: 600,
-                  color: isActive ? 'var(--primario)' : 'var(--texto-suave)',
-                  backgroundColor: isActive ? 'rgba(26,43,76,0.08)' : 'transparent',
-                  borderLeft: isActive ? '3px solid var(--primario)' : '3px solid transparent'
+                  color: isActive ? 'var(--primario-texto)' : 'var(--texto-suave)',
+                  backgroundColor: isActive ? 'var(--primario)' : 'transparent',
+                  borderLeft: isActive ? '3px solid var(--primario-texto)' : '3px solid transparent'
                 })}
               >
                 {iconoDeMenu(it.ruta)}
