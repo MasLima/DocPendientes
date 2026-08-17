@@ -128,7 +128,10 @@ const COL_DOC = 'Documento';
 const COL_NRO = 'Nro';
 const COL_EST = 'Estado';
 const COL_CONDP = 'Cond. Pago';
+const COL_IMPORTE = 'Importe Total';
+const COL_AMORTIZA = 'Amortiza';
 const COL_SALDO = 'Saldo';
+const COL_BANCO = 'Banco';
 const COL_NROUNICO = 'Nro. Único';
 const COL_VEND = 'Vendedor';
 
@@ -144,6 +147,23 @@ function celdasBase(d) {
   );
 }
 
+function celdasPendientes(d) {
+  return (
+    <>
+      <td className="mono">{d.tipo_documento_desc || d.cob_codo}</td>
+      <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
+      <td className="mono">{d.estado_descripcion}</td>
+      <td className="mono">{d.cond_pago_desc}</td>
+      <td className="mono">{d.moneda_signo} {fmt(d.importe_original)}</td>
+      <td className="mono">{d.moneda_signo} {fmt(d.pagado)}</td>
+      <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>{d.moneda_signo} {fmt(d.saldo)}</td>
+      <td className="mono">{d.banco_desc || ''}</td>
+      <td className="mono">{d.cob_nuni || ''}</td>
+      <td className="mono">{d.vendedor_nombre || ''}</td>
+    </>
+  );
+}
+
 function celdasFinales(d) {
   return (
     <>
@@ -152,13 +172,16 @@ function celdasFinales(d) {
   );
 }
 
-function filaExportar(d) {
+function filaPendientesExportar(d) {
   return [
     d.tipo_documento_desc || d.cob_codo,
     `${d.cob_seri}-${d.cob_nums}`,
     d.estado_descripcion,
     d.cond_pago_desc,
+    `${d.moneda_signo} ${fmt(d.importe_original)}`,
+    `${d.moneda_signo} ${fmt(d.pagado)}`,
     `${d.moneda_signo} ${fmt(d.saldo)}`,
+    d.banco_desc || '',
     d.cob_nuni || '',
     d.vendedor_nombre || ''
   ];
@@ -216,8 +239,8 @@ export default function ClienteDetalleScreen() {
 
   const { cliente, resumen, documentos, ultima_incidencia } = data;
 
-  const colPendientes = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, COL_NROUNICO, COL_VEND];
-  const filasPendientes = documentos.map((d) => filaExportar(d));
+  const colPendientes = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_IMPORTE, COL_AMORTIZA, COL_SALDO, COL_BANCO, COL_NROUNICO, COL_VEND];
+  const filasPendientes = documentos.map((d) => filaPendientesExportar(d));
 
   const colCronograma = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, 'Vencidos',
     ...cronograma.rangos.map((r) => r.label), `Mayor a ${cronograma.rangos.length ? fmtFecha(cronograma.rangos[cronograma.rangos.length - 1].dFin) : ''}`, COL_VEND];
@@ -357,9 +380,7 @@ export default function ClienteDetalleScreen() {
                 <tbody>
                   {documentos.map((d) => (
                     <tr key={`${d.cob_tivo}-${d.cob_nuvo}`}>
-                      {celdasBase(d)}
-                      <td className="mono">{d.cob_nuni || ''}</td>
-                      {celdasFinales(d)}
+                      {celdasPendientes(d)}
                     </tr>
                   ))}
                 </tbody>
