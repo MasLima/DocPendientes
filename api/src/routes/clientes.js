@@ -45,9 +45,11 @@ router.get('/:codigo', async (req, res) => {
   try {
     const [cli] = await pool.query(
       `SELECT c.ter_cote, c.ter_deno, c.ter_dire, c.ter_rucn, c.ter_fono, c.ter_cell, c.ter_emai,
-              c.ter_cocp, cp.com_dscp AS cond_pago_desc, c.ter_licr, c.ter_cozo
+              c.ter_cocp, cp.com_dscp AS cond_pago_desc, c.ter_licr, c.ter_cozo,
+              c.ter_core, v.ter_deno AS vendedor_nombre
        FROM clientes c
        LEFT JOIN condiciones_pago cp ON cp.com_cocp = c.ter_cocp
+       LEFT JOIN vendedores v ON v.ter_cote = c.ter_core
        WHERE c.ter_cote = ?`,
       [req.params.codigo]
     );
@@ -56,9 +58,12 @@ router.get('/:codigo', async (req, res) => {
     }
 
     const [docs] = await pool.query(
-      `SELECT cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums,
+      `SELECT cob_tivo, cob_nuvo, cob_codo, tipo_documento_desc, cob_seri, cob_nums,
               fecha_emision, fecha_vencimiento, dias_vencido,
               cob_como, moneda_signo, estado_descripcion,
+              cob_cocp, cond_pago_desc,
+              cob_banc, banco_desc, cob_nuni,
+              vendedor_nombre,
               importe_original, pagado, saldo
        FROM vw_documentos_pendientes
        WHERE cob_cote = ?

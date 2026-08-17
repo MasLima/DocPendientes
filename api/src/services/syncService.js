@@ -83,6 +83,54 @@ async function syncCondicionesPago() {
   return { condiciones: conds.length };
 }
 
+async function syncTiposDocumento() {
+  // Tipos de documento desde el ERP (mplgen003, definicion principal gen_subd=0).
+  const [tipos] = await erp.query(
+    `SELECT gen_codo, gen_dsdo
+     FROM mplgen003
+     WHERE gen_subd = 0
+     GROUP BY gen_codo, gen_dsdo`
+  );
+
+  for (const t of tipos) {
+    await app.query(
+      `REPLACE INTO tipos_documento (cob_codo, doc_descripcion)
+       VALUES (?, ?)`,
+      [t.gen_codo, t.gen_dsdo]
+    );
+  }
+
+  // Codigo 71 no esta en mplgen003 pero existe en mficob100 (letras/cuotas).
+  await app.query(
+    `REPLACE INTO tipos_documento (cob_codo, doc_descripcion)
+     VALUES ('71', 'Letra')`
+  );
+
+  await logSync('TIPOS_DOCUMENTO', tipos.length + 1,
+    'OK', `tipos=${tipos.length}`);
+
+  return { tipos: tipos.length };
+}
+
+async function syncBancos() {
+  // Bancos desde el ERP (mplcob002), usados para ubicar las letras.
+  const [bancos] = await erp.query(
+    `SELECT ban_codi, ban_desc FROM mplcob002`
+  );
+
+  for (const b of bancos) {
+    await app.query(
+      `REPLACE INTO bancos (ban_codi, ban_desc)
+       VALUES (?, ?)`,
+      [b.ban_codi, b.ban_desc]
+    );
+  }
+
+  await logSync('BANCOS', bancos.length, 'OK', `bancos=${bancos.length}`);
+
+  return { bancos: bancos.length };
+}
+
 async function syncDocumentos() {
   const placeholders = ESTADOS_PAGO_VALIDOS.map(() => '?').join(',');
   const excl = ESTADOS_DOC_EXCLUIDOS.map(() => '?').join(',');
@@ -101,6 +149,8 @@ async function syncDocumentos() {
        d.cob_core,
        d.cob_cocp,
        d.cob_stat,
+       d.cob_banc,
+       d.cob_nuni,
        d.doc_impo,
        d.cob_impo,
        d.cob_imps,
@@ -114,7 +164,8 @@ async function syncDocumentos() {
      WHERE d.cob_stat NOT IN (${excl})
      GROUP BY d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums,
               d.cob_cote, d.cob_feem, d.cob_feve, d.cob_como, d.cob_core,
-              d.cob_cocp, d.cob_stat, d.doc_impo, d.cob_impo, d.cob_imps, d.cob_impd
+              d.cob_cocp, d.cob_stat, d.cob_banc, d.cob_nuni,
+              d.doc_impo, d.cob_impo, d.cob_imps, d.cob_impd
      HAVING (d.cob_impo - COALESCE(SUM(p.cob_impc), 0)) > 0.01`,
     [...ESTADOS_PAGO_VALIDOS, ...ESTADOS_DOC_EXCLUIDOS]
   );
@@ -133,11 +184,13 @@ async function syncDocumentos() {
       `INSERT INTO documentos
          (cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums, cob_cote,
           cob_feem, cob_feve, cob_como, cob_core, cob_cocp, cob_stat,
+          cob_banc, cob_nuni,
           doc_impo, cob_impo, cob_imps, cob_impd, pagado, saldo)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums,
        d.cob_cote, d.cob_feem, d.cob_feve, monedaApp, d.cob_core,
-       d.cob_cocp, d.cob_stat, d.doc_impo, d.cob_impo, d.cob_imps,
+       d.cob_cocp, d.cob_stat, d.cob_banc, d.cob_nuni,
+       d.doc_impo, d.cob_impo, d.cob_imps,
        d.cob_impd, pagado, Number(saldo.toFixed(2))]
     );
     insertados++;
@@ -218,16 +271,19 @@ async function syncIncidencias() {
   return { incidencias: insertados, actualizadas: actualizados };
 }
 
-// Sincronizacion completa: maestros + condiciones + documentos + incidencias.
+// Sincronizacion completa: maestros + condiciones + tipos + bancos
+// + documentos + incidencias.
 // 'procesos' permite ejecutar solo un subconjunto (ej: ['maestros']).
-// Los nombres validos: maestros, condiciones, documentos, incidencias.
+// Los nombres validos: maestros, condiciones, tipos, bancos, documentos, incidencias.
 async function syncCompleto(procesos = null) {
-  const validos = ['maestros', 'condiciones', 'documentos', 'incidencias'];
+  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias'];
   const seleccion = procesos && procesos.length ? procesos : validos;
   const resultados = {};
 
   if (seleccion.includes('maestros')) resultados.maestros = await syncMaestros();
   if (seleccion.includes('condiciones')) resultados.condiciones = await syncCondicionesPago();
+  if (seleccion.includes('tipos')) resultados.tipos = await syncTiposDocumento();
+  if (seleccion.includes('bancos')) resultados.bancos = await syncBancos();
   if (seleccion.includes('documentos')) resultados.documentos = await syncDocumentos();
   if (seleccion.includes('incidencias')) resultados.incidencias = await syncIncidencias();
 
@@ -237,6 +293,8 @@ async function syncCompleto(procesos = null) {
 module.exports = {
   syncMaestros,
   syncCondicionesPago,
+  syncTiposDocumento,
+  syncBancos,
   syncDocumentos,
   syncIncidencias,
   syncCompleto

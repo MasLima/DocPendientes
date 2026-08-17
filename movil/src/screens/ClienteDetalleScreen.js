@@ -71,6 +71,9 @@ export default function ClienteDetalleScreen({ route, navigation }) {
         {resumen.saldo_USD ? (
           <Text style={styles.resumenLinea}>Saldo US$ <Text style={styles.resumenValor}>{formatMoneda(resumen.saldo_USD)}</Text></Text>
         ) : null}
+        <Text style={styles.resumenLinea}>
+          Vendedor: <Text style={styles.resumenValor}>{cliente.vendedor_nombre || cliente.ter_core || '-'}</Text>
+        </Text>
       </View>
 
       <View style={styles.resumen}>

@@ -6,6 +6,8 @@ import { apiGet, apiPost } from '../api/client';
 const PROCESOS = [
   { clave: 'maestros', etiqueta: 'Maestros (vendedores y clientes)' },
   { clave: 'condiciones', etiqueta: 'Condiciones de pago' },
+  { clave: 'tipos', etiqueta: 'Tipos de documento' },
+  { clave: 'bancos', etiqueta: 'Bancos' },
   { clave: 'documentos', etiqueta: 'Documentos pendientes' },
   { clave: 'incidencias', etiqueta: 'Incidencias' }
 ];
@@ -39,6 +41,8 @@ export default function ConfigSyncScreen() {
       const partes = [];
       if (res.maestros) partes.push(`Vendedores: ${res.maestros.vendedores} | Clientes: ${res.maestros.clientes}`);
       if (res.condiciones) partes.push(`Condiciones: ${res.condiciones.condiciones}`);
+      if (res.tipos) partes.push(`Tipos: ${res.tipos.tipos}`);
+      if (res.bancos) partes.push(`Bancos: ${res.bancos.bancos}`);
       if (res.documentos) partes.push(`Documentos: ${res.documentos.documentos}`);
       if (res.incidencias) partes.push(`Incidencias nuevas: ${res.incidencias.incidencias} | Actualizadas: ${res.incidencias.actualizadas}`);
       setResultado(partes.join(' | '));

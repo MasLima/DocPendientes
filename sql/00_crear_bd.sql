@@ -60,6 +60,8 @@ CREATE TABLE documentos (
   cob_core   VARCHAR(6)  NULL COMMENT 'Vendedor responsable',
   cob_cocp   VARCHAR(3)  NULL COMMENT 'Condicion pago',
   cob_stat   VARCHAR(2)  NULL COMMENT 'Estado CxC (mplgen006)',
+  cob_banc   VARCHAR(2)  NULL COMMENT 'Banco donde esta la letra (mplcob002)',
+  cob_nuni   VARCHAR(10) NULL COMMENT 'Numero unico de la letra en el banco',
   doc_impo   DOUBLE(10,2) NULL COMMENT 'Importe total doc (moneda origen)',
   cob_impo   DOUBLE(10,2) NULL COMMENT 'Importe original',
   cob_imps   DOUBLE(10,2) NULL COMMENT 'Importe soles',
@@ -162,9 +164,24 @@ INSERT INTO estados_documento (gen_stat, gen_dsst) VALUES
   ('75','FACTURADO'),('77','APLICADO'),('80','ANULADO'),('86','ELIMINADO'),
   ('90','CERRADO'),('94','DEVUELTO'),('99','INTEGRADO');
 
+-- Tipos de documento (equivalente mplgen003 del ERP, gen_subd=0)
+DROP TABLE IF EXISTS tipos_documento;
+CREATE TABLE tipos_documento (
+  cob_codo   VARCHAR(2)  NOT NULL PRIMARY KEY COMMENT 'Codigo tipo documento',
+  doc_descripcion VARCHAR(350) NULL COMMENT 'Descripcion (Factura, Boleta, Letra...)'
+) ENGINE=InnoDB;
+
+-- Bancos (equivalente mplcob002 del ERP)
+DROP TABLE IF EXISTS bancos;
+CREATE TABLE bancos (
+  ban_codi   VARCHAR(2)  NOT NULL PRIMARY KEY COMMENT 'Codigo banco',
+  ban_desc   VARCHAR(100) NULL COMMENT 'Descripcion del banco'
+) ENGINE=InnoDB;
+
 -- ============================================================
 -- VISTA: documentos pendientes listos para la API/app
--- Incluye nombre de cliente, vendedor, moneda y estado.
+-- Incluye nombre de cliente, vendedor, moneda, estado, tipo de
+-- documento, condicion de pago, banco y numero de letra.
 -- ============================================================
 DROP VIEW IF EXISTS vw_documentos_pendientes;
 CREATE VIEW vw_documentos_pendientes AS
@@ -172,11 +189,13 @@ SELECT
   d.cob_tivo,
   d.cob_nuvo,
   d.cob_codo,
+  COALESCE(td.doc_descripcion, '') AS tipo_documento_desc,
   d.cob_seri,
   d.cob_nums,
   d.cob_cote,
   c.ter_deno AS cliente_nombre,
   c.ter_core AS vendedor_codigo,
+  COALESCE(v.ter_deno, '') AS vendedor_nombre,
   c.ter_rucn AS cliente_ruc,
   d.cob_feem AS fecha_emision,
   d.cob_feve AS fecha_vencimiento,
@@ -185,11 +204,20 @@ SELECT
   COALESCE(m.com_sign, '') AS moneda_signo,
   d.cob_stat AS estado_codigo,
   COALESCE(e.gen_dsst, '') AS estado_descripcion,
+  d.cob_cocp,
+  COALESCE(cp.com_dscp, '') AS cond_pago_desc,
+  d.cob_banc,
+  COALESCE(b.ban_desc, '') AS banco_desc,
+  d.cob_nuni,
   d.cob_impo AS importe_original,
   d.pagado,
   d.saldo
 FROM cobranza_app.documentos d
 LEFT JOIN cobranza_app.clientes c ON c.ter_cote = d.cob_cote
+LEFT JOIN cobranza_app.vendedores v ON v.ter_cote = d.cob_core
 LEFT JOIN cobranza_app.monedas m ON m.com_como = d.cob_como
 LEFT JOIN cobranza_app.estados_documento e ON e.gen_stat = d.cob_stat
+LEFT JOIN cobranza_app.condiciones_pago cp ON cp.com_cocp = d.cob_cocp
+LEFT JOIN cobranza_app.tipos_documento td ON td.cob_codo = d.cob_codo
+LEFT JOIN cobranza_app.bancos b ON b.ban_codi = d.cob_banc
 WHERE d.saldo > 0;

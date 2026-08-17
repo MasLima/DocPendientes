@@ -14,10 +14,10 @@ export default function ConfiguracionScreen() {
 
   const opciones = [];
   if (puedeSync) {
-    opciones.push({ ruta: '/configuracion/sync', titulo: 'Sincronización', desc: 'Ejecutar sincronización con el ERP y ver el historial' });
+    opciones.push({ ruta: '/configuracion/sync', titulo: 'Sincronización', icono: '🔄', desc: 'Ejecutar sincronización con el ERP y ver el historial' });
   }
   if (puedeUsuarios) {
-    opciones.push({ ruta: '/configuracion/usuarios', titulo: 'Usuarios', desc: 'Crear, editar y desactivar usuarios de la app' });
+    opciones.push({ ruta: '/configuracion/usuarios', titulo: 'Usuarios', icono: '👥', desc: 'Crear, editar y desactivar usuarios de la app' });
   }
 
   return (
@@ -28,10 +28,13 @@ export default function ConfiguracionScreen() {
           key={o.ruta}
           to={o.ruta}
           className="card"
-          style={{ display: 'block', marginBottom: 10, padding: 16, textDecoration: 'none' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, padding: 16, textDecoration: 'none' }}
         >
-          <div style={{ fontSize: 16, fontWeight: 700 }}>{o.titulo}</div>
-          <div className="mutado" style={{ marginTop: 3 }}>{o.desc}</div>
+          <span style={{ fontSize: 24 }}>{o.icono}</span>
+          <span>
+            <span style={{ display: 'block', fontSize: 16, fontWeight: 700 }}>{o.titulo}</span>
+            <span className="mutado" style={{ display: 'block', marginTop: 3 }}>{o.desc}</span>
+          </span>
         </Link>
       ))}
     </div>

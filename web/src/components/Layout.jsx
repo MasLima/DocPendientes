@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../context/ThemeContext';
+import { LogOutIcon, iconoDeMenu } from './Iconos';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -47,6 +48,9 @@ export default function Layout() {
                 to={it.ruta}
                 end={it.ruta === '/'}
                 style={({ isActive }) => ({
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
                   padding: '11px 18px',
                   fontSize: 15,
                   fontWeight: 600,
@@ -55,6 +59,7 @@ export default function Layout() {
                   borderLeft: isActive ? '3px solid var(--primario)' : '3px solid transparent'
                 })}
               >
+                {iconoDeMenu(it.ruta)}
                 {it.texto}
               </NavLink>
             ))}
@@ -95,7 +100,7 @@ export default function Layout() {
               {esOscuro ? '☀️ Claro' : '🌙 Oscuro'}
             </button>
             <button className="btn" onClick={salir} style={{ background: '#c0392b', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px' }}>
-              <span aria-hidden style={{ fontSize: 20, lineHeight: 1 }}>⏻</span> Salir
+              <LogOutIcon size={20} /> Salir
             </button>
           </div>
         </header>

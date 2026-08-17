@@ -56,6 +56,9 @@ export default function ClienteDetalleScreen() {
           <div className="mutado" style={{ color: 'var(--rojo)' }}>Vencidos: <strong>{resumen.total_vencidos}</strong></div>
           {resumen.saldo_PEN ? <div className="mutado">Saldo S/. <strong>{fmt(resumen.saldo_PEN)}</strong></div> : null}
           {resumen.saldo_USD ? <div className="mutado">Saldo US$ <strong>{fmt(resumen.saldo_USD)}</strong></div> : null}
+          <div className="mutado" style={{ marginTop: 8, borderTop: '1px solid var(--borde)', paddingTop: 8 }}>
+            Vendedor: <strong>{cliente.vendedor_nombre || cliente.ter_core || '-'}</strong>
+          </div>
         </div>
         <div className="card">
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)', marginBottom: 8 }}>Última incidencia registrada</div>
@@ -84,27 +87,42 @@ export default function ClienteDetalleScreen() {
       {documentos.length === 0 ? (
         <div className="vacio">Cliente sin documentos pendientes</div>
       ) : (
-        <table className="tabla">
-          <thead>
-            <tr><th>Nro</th><th>Emisión</th><th>Venc.</th><th>Días venc.</th><th>Saldo</th><th>Pagado</th></tr>
-          </thead>
-          <tbody>
-            {documentos.map((d) => (
-              <tr key={`${d.cob_tivo}-${d.cob_nuvo}`}>
-                <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
-                <td className="mono">{d.fecha_emision || '-'}</td>
-                <td className="mono">{d.fecha_vencimiento || '-'}</td>
-                <td className="mono" style={{ color: d.dias_vencido > 0 ? 'var(--rojo)' : 'var(--verde)', fontWeight: 600 }}>
-                  {d.dias_vencido > 0 ? `${d.dias_vencido} d` : 'ok'}
-                </td>
-                <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>
-                  {d.moneda_signo} {fmt(d.saldo)}
-                </td>
-                <td className="mono">{d.moneda_signo} {fmt(d.pagado)} de {fmt(d.importe_original)}</td>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th>Documento</th>
+                <th>Nro</th>
+                <th>Estado</th>
+                <th>Cond. Pago</th>
+                <th>Moneda</th>
+                <th>Importe Total</th>
+                <th>Amortiza</th>
+                <th>Saldo</th>
+                <th>Banco</th>
+                <th>N° Letra</th>
+                <th>Vendedor</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {documentos.map((d) => (
+                <tr key={`${d.cob_tivo}-${d.cob_nuvo}`}>
+                  <td className="mono">{d.tipo_documento_desc || d.cob_codo}</td>
+                  <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
+                  <td className="mono">{d.estado_descripcion}</td>
+                  <td className="mono">{d.cond_pago_desc}</td>
+                  <td className="mono">{d.moneda_signo}</td>
+                  <td className="mono">{d.moneda_signo} {fmt(d.importe_original)}</td>
+                  <td className="mono">{d.moneda_signo} {fmt(d.pagado)}</td>
+                  <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>{d.moneda_signo} {fmt(d.saldo)}</td>
+                  <td className="mono">{d.banco_desc || (d.cob_banc ? d.cob_banc : '')}</td>
+                  <td className="mono">{d.cob_nuni || ''}</td>
+                  <td className="mono">{d.vendedor_nombre || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
