@@ -181,24 +181,26 @@ export default function ConfigUsuariosScreen() {
                 )}
               </td>
               <td>
-                <button
-                  className="btn"
-                  style={{ padding: '6px 10px', fontSize: 12, marginRight: 6, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                  title={`Editar ${u.use_logi}`}
-                  onClick={() => abrirEditar(u)}
-                >
-                  ✎ Editar
-                </button>
-                {u.activo && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button
-                    className="btn btn-rojo"
-                    style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                    title={`Desactivar ${u.use_logi}`}
-                    onClick={() => desactivar(u)}
+                    className="btn btn-ghost"
+                    style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--borde)', color: 'var(--texto)', background: 'transparent' }}
+                    title={`Editar ${u.use_logi}`}
+                    onClick={() => abrirEditar(u)}
                   >
-                    ⏻ Desactivar
+                    ✎ Editar
                   </button>
-                )}
+                  {u.activo && (
+                    <button
+                      className="btn btn-ghost"
+                      style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--rojo)', color: 'var(--rojo)', background: 'transparent' }}
+                      title={`Desactivar ${u.use_logi}`}
+                      onClick={() => desactivar(u)}
+                    >
+                      ⏻ Desactivar
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

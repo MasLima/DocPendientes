@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
+
+const POR_PAGINA = 100;
 
 export default function ClientesScreen() {
   const { token } = useAuth();
@@ -10,6 +12,8 @@ export default function ClientesScreen() {
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const [anchoCliente, setAnchoCliente] = useState(280);
 
   const cargar = useCallback(async () => {
     try {
@@ -25,23 +29,70 @@ export default function ClientesScreen() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  const filtrados = clientes.filter((c) =>
-    (c.ter_deno || '').toLowerCase().includes(busqueda.toLowerCase()) ||
-    (c.ter_rucn || '').includes(busqueda) ||
-    (c.ter_cote || '').includes(busqueda)
+  // Filtrado en memoria (rapido incluso con 14k filas gracias a useMemo).
+  const filtrados = useMemo(() => {
+    const b = busqueda.trim().toLowerCase();
+    if (!b) return clientes;
+    return clientes.filter((c) =>
+      (c.ter_deno || '').toLowerCase().includes(b) ||
+      (c.ter_rucn || '').includes(b) ||
+      (c.ter_cote || '').includes(b)
+    );
+  }, [clientes, busqueda]);
+
+  // Paginacion: solo se pintan POR_PAGINA filas, la UI nunca se congela.
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
+  const paginaSegura = Math.min(pagina, totalPaginas);
+  const visibles = useMemo(
+    () => filtrados.slice((paginaSegura - 1) * POR_PAGINA, paginaSegura * POR_PAGINA),
+    [filtrados, paginaSegura]
   );
+
+  // Volver a la pagina 1 al cambiar la busqueda.
+  useEffect(() => { setPagina(1); }, [busqueda]);
+
+  // Redimension de la columna Cliente arrastrando el borde del encabezado.
+  const empezarResize = (e) => {
+    e.preventDefault();
+    const inicioX = e.clientX;
+    const inicioW = anchoCliente;
+    const mover = (ev) => {
+      const w = Math.min(600, Math.max(120, inicioW + (ev.clientX - inicioX)));
+      setAnchoCliente(w);
+    };
+    const soltar = () => {
+      window.removeEventListener('mousemove', mover);
+      window.removeEventListener('mouseup', soltar);
+    };
+    window.addEventListener('mousemove', mover);
+    window.addEventListener('mouseup', soltar);
+  };
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 20 }}>Clientes</h2>
-        <input
-          className="input"
-          style={{ width: 300 }}
-          placeholder="Buscar por nombre, RUC o código..."
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
-        />
+        <h2 style={{ margin: 0, fontSize: 20 }}>
+          Clientes <span className="mutado">({filtrados.length})</span>
+        </h2>
+        <div style={{ position: 'relative', width: 300 }}>
+          <input
+            className="input"
+            style={{ width: '100%', paddingRight: 34 }}
+            placeholder="Buscar por nombre, RUC o código..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          {busqueda && (
+            <button
+              className="btn btn-ghost"
+              title="Limpiar búsqueda"
+              onClick={() => setBusqueda('')}
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 0, width: 20, height: 20, fontSize: 14, lineHeight: 1, color: 'var(--texto-suave)' }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {cargando ? (
@@ -49,31 +100,68 @@ export default function ClientesScreen() {
       ) : error ? (
         <div className="vacio" style={{ color: 'var(--rojo)' }}>{error}</div>
       ) : (
-        <table className="tabla">
-          <thead>
-            <tr><th>Código</th><th>Cliente</th><th>RUC</th><th>Teléfono</th><th>Cond. pago</th><th></th></tr>
-          </thead>
-          <tbody>
-            {filtrados.map((c) => (
-              <tr key={c.ter_cote} style={{ cursor: 'pointer' }} onClick={() => navigate(`/clientes/${c.ter_cote}`)}>
-                <td className="mono">{c.ter_cote}</td>
-                <td style={{ fontWeight: 600 }}>{c.ter_deno || 'Sin nombre'}</td>
-                <td className="mono">{c.ter_rucn || '-'}</td>
-                <td>{c.ter_fono || '-'}</td>
-                <td>{c.cond_pago_desc || c.ter_cocp || '-'}</td>
-                <td>
-                  <button
-                    className="btn"
-                    style={{ padding: '6px 10px', fontSize: 12 }}
-                    onClick={(e) => { e.stopPropagation(); navigate(`/clientes/${c.ter_cote}/incidencias`); }}
-                  >
-                    Ver incidencias
-                  </button>
-                </td>
+        <>
+          <table className="tabla" style={{ tableLayout: 'fixed' }}>
+            <thead>
+              <tr>
+                <th style={{ width: 70 }}>Código</th>
+                <th style={{ width: anchoCliente, position: 'relative' }}>
+                  Cliente
+                  <span
+                    onMouseDown={empezarResize}
+                    title="Arrastrar para ajustar ancho"
+                    style={{ position: 'absolute', top: 0, right: -4, width: 8, height: '100%', cursor: 'col-resize' }}
+                  />
+                </th>
+                <th style={{ width: 110 }}>RUC</th>
+                <th style={{ width: 120 }}>Teléfono</th>
+                <th style={{ width: 150 }}>Cond. pago</th>
+                <th style={{ width: 130 }}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {visibles.map((c) => (
+                <tr key={c.ter_cote} style={{ cursor: 'pointer' }} onClick={() => navigate(`/clientes/${c.ter_cote}`)}>
+                  <td className="mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ter_cote}</td>
+                  <td
+                    title={c.ter_deno || 'Sin nombre'}
+                    style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {c.ter_deno || 'Sin nombre'}
+                  </td>
+                  <td className="mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ter_rucn || '-'}</td>
+                  <td style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.ter_fono || '-'}</td>
+                  <td style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.cond_pago_desc || c.ter_cocp || '-'}</td>
+                  <td>
+                    <button
+                      className="btn"
+                      style={{ padding: '6px 10px', fontSize: 12 }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/clientes/${c.ter_cote}/incidencias`); }}
+                    >
+                      Ver incidencias
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {filtrados.length === 0 && <div className="vacio">Sin resultados</div>}
+
+          {totalPaginas > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 14 }}>
+              <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} disabled={paginaSegura <= 1} onClick={() => setPagina(paginaSegura - 1)}>
+                ← Anterior
+              </button>
+              <span className="mutado">
+                Página {paginaSegura} de {totalPaginas} · mostrando {visibles.length} de {filtrados.length}
+              </span>
+              <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} disabled={paginaSegura >= totalPaginas} onClick={() => setPagina(paginaSegura + 1)}>
+                Siguiente →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

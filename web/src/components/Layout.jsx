@@ -94,8 +94,8 @@ export default function Layout() {
             <button className="btn btn-ghost" onClick={alternarTema} style={{ color: '#fff', border: '1px solid rgba(255,255,255,0.4)' }}>
               {esOscuro ? '☀️ Claro' : '🌙 Oscuro'}
             </button>
-            <button className="btn" onClick={salir} style={{ background: '#c0392b', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span aria-hidden>⏻</span> Salir
+            <button className="btn" onClick={salir} style={{ background: '#c0392b', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px' }}>
+              <span aria-hidden style={{ fontSize: 20, lineHeight: 1 }}>⏻</span> Salir
             </button>
           </div>
         </header>
