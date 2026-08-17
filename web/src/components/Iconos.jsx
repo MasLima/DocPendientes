@@ -156,6 +156,15 @@ export function EyeIcon({ size = 20 }) {
   );
 }
 
+export function SearchIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M221.09 64a157.09 157.09 0 1 0 157.09 157.09A157.1 157.1 0 0 0 221.09 64z" />
+      <line x1="338.29" y1="338.29" x2="448" y2="448" />
+    </svg>
+  );
+}
+
 // Mapeo de las opciones del menú.
 export function iconoDeMenu(ruta) {
   switch (ruta) {

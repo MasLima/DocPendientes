@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
 import Exportar from '../components/Exportar';
 import { EyeIcon } from '../components/Iconos';
+import CampoBusqueda from '../components/CampoBusqueda';
+import FiltroVendedores from '../components/FiltroVendedores';
 
 const POR_PAGINA = 100;
 
@@ -11,9 +13,8 @@ export default function ClientesScreen() {
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [clientes, setClientes] = useState([]);
-  const [vendedores, setVendedores] = useState([]);
   const [busqueda, setBusqueda] = useState('');
-  const [vendedorSel, setVendedorSel] = useState('');
+  const [vendedoresSel, setVendedoresSel] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [pagina, setPagina] = useState(1);
@@ -24,7 +25,7 @@ export default function ClientesScreen() {
 
   const cargar = useCallback(async () => {
     try {
-      const qs = vendedorSel ? `?vendedor=${encodeURIComponent(vendedorSel)}` : '';
+      const qs = vendedoresSel.length > 0 ? `?vendedor=${encodeURIComponent(vendedoresSel.join(','))}` : '';
       const data = await apiGet(`/clientes${qs}`, token);
       setClientes(Array.isArray(data) ? data : data.value || []);
       setError('');
@@ -33,18 +34,9 @@ export default function ClientesScreen() {
     } finally {
       setCargando(false);
     }
-  }, [token, vendedorSel]);
-
-  const cargarVendedores = useCallback(async () => {
-    if (!puedeTodos) return;
-    try {
-      const data = await apiGet('/clientes/vendedores', token);
-      setVendedores(Array.isArray(data) ? data : data.value || []);
-    } catch { /* noop */ }
-  }, [token, puedeTodos]);
+  }, [token, vendedoresSel]);
 
   useEffect(() => { cargar(); }, [cargar]);
-  useEffect(() => { cargarVendedores(); }, [cargarVendedores]);
 
   // Filtrado en memoria (rapido incluso con 14k filas gracias a useMemo).
   const filtrados = useMemo(() => {
@@ -66,7 +58,7 @@ export default function ClientesScreen() {
   );
 
   // Volver a la pagina 1 al cambiar la busqueda o el vendedor.
-  useEffect(() => { setPagina(1); }, [busqueda, vendedorSel]);
+  useEffect(() => { setPagina(1); }, [busqueda, vendedoresSel]);
 
   // Redimension de la columna Cliente arrastrando el borde del encabezado.
   const empezarResize = (e) => {
@@ -100,32 +92,14 @@ export default function ClientesScreen() {
             />
           )}
           {puedeTodos && (
-            <select className="input" style={{ width: 180 }} value={vendedorSel} onChange={(e) => setVendedorSel(e.target.value)}>
-              <option value="">Todos los vendedores</option>
-              {vendedores.map((v) => (
-                <option key={v.ter_cote} value={v.ter_cote}>{v.ter_cote} - {v.ter_deno}</option>
-              ))}
-            </select>
+            <FiltroVendedores token={token} seleccionados={vendedoresSel} onCambio={setVendedoresSel} />
           )}
-          <div style={{ position: 'relative', width: 300 }}>
-            <input
-              className="input"
-              style={{ width: '100%', paddingRight: 34 }}
-              placeholder="Buscar por nombre, RUC o código..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-            />
-            {busqueda && (
-              <button
-                className="btn btn-ghost"
-                title="Limpiar búsqueda"
-                onClick={() => setBusqueda('')}
-                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 0, width: 20, height: 20, fontSize: 14, lineHeight: 1, color: 'var(--texto-suave)' }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          <CampoBusqueda
+            width={300}
+            value={busqueda}
+            onChange={setBusqueda}
+            placeholder="Buscar por nombre, RUC o código..."
+          />
         </div>
       </div>
 
@@ -170,8 +144,8 @@ export default function ClientesScreen() {
                   {puedeTodos && <td style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.vendedor_nombre || c.ter_core || '-'}</td>}
                   <td>
                     <button
-                      className="btn btn-verde"
-                      style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      className="btn btn-ghost"
+                      style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--verde)', color: 'var(--verde)', background: 'transparent', fontWeight: 700 }}
                       onClick={(e) => { e.stopPropagation(); navigate(`/clientes/${c.ter_cote}/incidencias`); }}
                     >
                       <EyeIcon size={14} /> Ver incidencias

@@ -15,6 +15,7 @@ import NuevaIncidenciaScreen from './screens/NuevaIncidenciaScreen';
 import ConfiguracionScreen from './screens/ConfiguracionScreen';
 import ConfigSyncScreen from './screens/ConfigSyncScreen';
 import ConfigUsuariosScreen from './screens/ConfigUsuariosScreen';
+import ConfigPerfilesScreen from './screens/ConfigPerfilesScreen';
 
 function ThemedApp() {
   const { tema } = useTema();
@@ -47,6 +48,7 @@ function ThemedApp() {
           <Route path="/configuracion" element={<ConfiguracionScreen />} />
           <Route path="/configuracion/sync" element={<ConfigSyncScreen />} />
           <Route path="/configuracion/usuarios" element={<ConfigUsuariosScreen />} />
+          <Route path="/configuracion/perfiles" element={<ConfigPerfilesScreen />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

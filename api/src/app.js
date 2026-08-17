@@ -17,6 +17,7 @@ app.use('/api/documentos', auth, require('./routes/documentos'));
 app.use('/api/incidencias', auth, require('./routes/incidencias'));
 app.use('/api/reportes', auth, require('./routes/reportes'));
 app.use('/api/usuarios', auth, require('./routes/usuarios'));
+app.use('/api/perfiles', auth, require('./routes/perfiles'));
 app.use('/api/sync', auth, require('./routes/sync'));
 app.use('/api/dashboard', auth, require('./routes/dashboard'));
 

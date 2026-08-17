@@ -7,8 +7,9 @@ export default function ConfiguracionScreen() {
   const puede = (p) => (user.permisos || []).includes(p);
   const puedeSync = puede('sync.ejecutar') || puede('sync.ver_log');
   const puedeUsuarios = puede('config.usuarios');
+  const puedePerfiles = puede('config.permisos') || puede('config.ver');
 
-  if (!puedeSync && !puedeUsuarios) {
+  if (!puedeSync && !puedeUsuarios && !puedePerfiles) {
     return <div className="vacio">No tienes acceso a configuración</div>;
   }
 
@@ -18,6 +19,9 @@ export default function ConfiguracionScreen() {
   }
   if (puedeUsuarios) {
     opciones.push({ ruta: '/configuracion/usuarios', titulo: 'Usuarios', icono: '👥', desc: 'Crear, editar y desactivar usuarios de la app' });
+  }
+  if (puedePerfiles) {
+    opciones.push({ ruta: '/configuracion/perfiles', titulo: 'Perfiles', icono: '🛡️', desc: 'Configurar las opciones de menú y permisos por perfil' });
   }
 
   return (

@@ -5,7 +5,7 @@ const pool = require('../config/db');
 // - Con permiso 'clientes.ver_todos' (admin/empleado): todos.
 // - Sin el permiso (vendedor): solo los de su cartera (ter_core).
 // - ?q=texto          filtra por nombre o codigo (para buscar al crear incidencias).
-// - ?vendedor=codigo  filtra por vendedor (solo para quien ve todos).
+// - ?vendedor=1,2,3   filtra por uno o varios vendedores (solo para quien ve todos).
 router.get('/', async (req, res) => {
   try {
     const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
@@ -15,8 +15,11 @@ router.get('/', async (req, res) => {
       where.push('c.ter_core = ?');
       params.push(req.user.ter_cote);
     } else if (req.query.vendedor) {
-      where.push('c.ter_core = ?');
-      params.push(req.query.vendedor);
+      const lista = req.query.vendedor.split(',').filter(Boolean);
+      if (lista.length > 0) {
+        where.push(`c.ter_core IN (${lista.map(() => '?').join(',')})`);
+        params.push(...lista);
+      }
     }
     if (req.query.q) {
       where.push('(c.ter_deno LIKE ? OR c.ter_cote LIKE ?)');

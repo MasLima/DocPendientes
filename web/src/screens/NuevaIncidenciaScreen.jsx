@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiPost, apiGet } from '../api/client';
+import CampoBusqueda from '../components/CampoBusqueda';
 
 export default function NuevaIncidenciaScreen() {
   const { token, user } = useAuth();
@@ -74,14 +75,12 @@ export default function NuevaIncidenciaScreen() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  className="input"
-                  placeholder="Buscar cliente por nombre o código..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                />
-              </div>
+              <CampoBusqueda
+                width="100%"
+                value={busqueda}
+                onChange={setBusqueda}
+                placeholder="Buscar cliente por nombre o código..."
+              />
               {clientes.length > 0 && (
                 <div className="card" style={{ marginTop: 6, maxHeight: 220, overflowY: 'auto', padding: 6 }}>
                   {clientes.map((c) => (

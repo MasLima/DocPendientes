@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
 import Exportar from '../components/Exportar';
+import CampoBusqueda from '../components/CampoBusqueda';
 
 function estadoColor(inc_estc) {
   if (inc_estc === 1) return '#e67e22';
@@ -109,12 +110,11 @@ export default function IncidenciasScreen() {
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="mutado" style={{ marginBottom: 8 }}>Filtros</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-          <input
-            className="input"
-            style={{ width: 260 }}
-            placeholder="Buscar por nombre de cliente o vendedor..."
+          <CampoBusqueda
+            width={260}
             value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
+            onChange={setBusqueda}
+            placeholder="Buscar por nombre de cliente o vendedor..."
           />
           {pestana === 'historial' && (
             <>
@@ -231,14 +231,13 @@ function SelectCliente({ token, onSelect }) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <input
-        className="input"
-        style={{ width: 240 }}
-        placeholder="Filtrar por cliente..."
+      <CampoBusqueda
+        width={240}
         value={busqueda}
+        onChange={setBusqueda}
+        placeholder="Filtrar por cliente..."
         onFocus={() => setAbierto(true)}
         onBlur={() => setTimeout(() => setAbierto(false), 200)}
-        onChange={(e) => setBusqueda(e.target.value)}
       />
       {abierto && clientes.length > 0 && (
         <div className="card" style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10, marginTop: 4, maxHeight: 240, overflowY: 'auto', padding: 6 }}>

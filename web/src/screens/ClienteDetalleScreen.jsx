@@ -126,6 +126,8 @@ function calcularAntiguedad(documentos, cantRangos, diasRango) {
 // ---------- Columnas de la tabla de documentos ----------
 const COL_DOC = 'Documento';
 const COL_NRO = 'Nro';
+const COL_FEEM = 'F. Emisión';
+const COL_FEVE = 'F. Vencimiento';
 const COL_EST = 'Estado';
 const COL_CONDP = 'Cond. Pago';
 const COL_IMPORTE = 'Importe Total';
@@ -139,6 +141,8 @@ function celdasBase(d) {
     <>
       <td className="mono">{d.tipo_documento_desc || d.cob_codo}</td>
       <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
+      <td className="mono">{d.fecha_emision || ''}</td>
+      <td className="mono">{d.fecha_vencimiento || ''}</td>
       <td className="mono">{d.estado_descripcion}</td>
       <td className="mono">{d.cond_pago_desc}</td>
       <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>{d.moneda_signo} {fmt(d.saldo)}</td>
@@ -151,6 +155,8 @@ function celdasPendientes(d) {
     <>
       <td className="mono">{d.tipo_documento_desc || d.cob_codo}</td>
       <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
+      <td className="mono">{d.fecha_emision || ''}</td>
+      <td className="mono">{d.fecha_vencimiento || ''}</td>
       <td className="mono">{d.estado_descripcion}</td>
       <td className="mono">{d.cond_pago_desc}</td>
       <td className="mono">{d.moneda_signo} {fmt(d.importe_original)}</td>
@@ -166,6 +172,8 @@ function filaPendientesExportar(d) {
   return [
     d.tipo_documento_desc || d.cob_codo,
     `${d.cob_seri}-${d.cob_nums}`,
+    d.fecha_emision || '',
+    d.fecha_vencimiento || '',
     d.estado_descripcion,
     d.cond_pago_desc,
     `${d.moneda_signo} ${fmt(d.importe_original)}`,
@@ -236,14 +244,16 @@ export default function ClienteDetalleScreen() {
     ['Vendedor', cliente.vendedor_nombre || cliente.ter_core || '-']
   ];
 
-  const colPendientes = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_IMPORTE, COL_AMORTIZA, COL_SALDO, COL_BANCO, COL_NROUNICO];
+  const colPendientes = [COL_DOC, COL_NRO, COL_FEEM, COL_FEVE, COL_EST, COL_CONDP, COL_IMPORTE, COL_AMORTIZA, COL_SALDO, COL_BANCO, COL_NROUNICO];
   const filasPendientes = documentos.map((d) => filaPendientesExportar(d));
 
-  const colCronograma = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, 'Vencidos',
+  const colCronograma = [COL_DOC, COL_NRO, COL_FEEM, COL_FEVE, COL_EST, COL_CONDP, COL_SALDO, 'Vencidos',
     ...cronograma.rangos.map((r) => r.label), `Mayor a ${cronograma.rangos.length ? fmtFecha(cronograma.rangos[cronograma.rangos.length - 1].dFin) : ''}`];
   const filasCronograma = cronograma.filas.map((f) => [
     f.doc.tipo_documento_desc || f.doc.cob_codo,
     `${f.doc.cob_seri}-${f.doc.cob_nums}`,
+    f.doc.fecha_emision || '',
+    f.doc.fecha_vencimiento || '',
     f.doc.estado_descripcion,
     f.doc.cond_pago_desc,
     `${f.doc.moneda_signo} ${fmt(f.doc.saldo)}`,
@@ -252,11 +262,13 @@ export default function ClienteDetalleScreen() {
     f.mayores ? fmt(f.mayores) : ''
   ]);
 
-  const colAntiguedad = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, 'Al día',
+  const colAntiguedad = [COL_DOC, COL_NRO, COL_FEEM, COL_FEVE, COL_EST, COL_CONDP, COL_SALDO, 'Al día',
     ...antiguedad.rangos.map((r) => r.label), `Mayores a ${antiguedad.rangos.length ? antiguedad.rangos[antiguedad.rangos.length - 1].max : ''} días`];
   const filasAntiguedad = antiguedad.filas.map((f) => [
     f.doc.tipo_documento_desc || f.doc.cob_codo,
     `${f.doc.cob_seri}-${f.doc.cob_nums}`,
+    f.doc.fecha_emision || '',
+    f.doc.fecha_vencimiento || '',
     f.doc.estado_descripcion,
     f.doc.cond_pago_desc,
     `${f.doc.moneda_signo} ${fmt(f.doc.saldo)}`,
@@ -360,7 +372,7 @@ export default function ClienteDetalleScreen() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Documentos pendientes</div>
-            {documentos.length > 0 && <Exportar nombreArchivo={`documentos_${cliente.ter_cote}`} columnas={colPendientes} filas={filasPendientes} titulo="Documentos Pendientes" info={infoExportar} />}
+            {documentos.length > 0 && <Exportar nombreArchivo={`documentos_${cliente.ter_cote}`} columnas={colPendientes} filas={filasPendientes} titulo="Doc. Pendientes" info={infoExportar} />}
           </div>
           {documentos.length === 0 ? (
             <div className="vacio">Cliente sin documentos pendientes</div>

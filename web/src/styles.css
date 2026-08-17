@@ -10,6 +10,7 @@
   --verde: #27ae60;
   --naranja: #e67e22;
   --azul: #2980b9;
+  --zebra: #f7f8fb;
 }
 
 body.dark {
@@ -20,6 +21,7 @@ body.dark {
   --texto-suave: #9ca3af;
   --primario: #1a2b4c;
   --primario-texto: #ffffff;
+  --zebra: #232f42;
 }
 
 * { box-sizing: border-box; }
@@ -81,7 +83,8 @@ table.tabla th, table.tabla td {
   font-size: 13px;
 }
 table.tabla th { background: var(--primario); color: #fff; font-size: 12px; text-transform: uppercase; }
-table.tabla tbody tr:hover { background: rgba(26, 43, 76, 0.05); }
+table.tabla tbody tr:nth-child(even) { background: var(--zebra); }
+table.tabla tbody tr:hover { background: rgba(26, 43, 76, 0.08); }
 table.tabla tbody tr:last-child td { border-bottom: none; }
 
 .badge {
