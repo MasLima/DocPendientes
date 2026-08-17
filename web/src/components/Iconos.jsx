@@ -108,6 +108,44 @@ export function TimeIcon({ size = 20 }) {
   );
 }
 
+export function StatsIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M112 464h288" />
+      <path d="M80 320h64a16 16 0 0 0 16-16V128a16 16 0 0 0-16-16H80a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16z" />
+      <path d="M256 416h64a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16h-64a16 16 0 0 0-16 16v352a16 16 0 0 0 16 16z" />
+      <path d="M432 416h64a16 16 0 0 0 16-16V192a16 16 0 0 0-16-16h-64a16 16 0 0 0-16 16v208a16 16 0 0 0 16 16z" />
+    </svg>
+  );
+}
+
+export function ExcelIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M400 32H128a48 48 0 0 0-48 48v368a48 48 0 0 0 48 48h272a48 48 0 0 0 48-48V80a48 48 0 0 0-48-48z" />
+      <path d="M416 144H96" />
+      <path d="M176 224l-64 64" />
+      <path d="M112 224l64 64" />
+      <path d="M256 224v128" />
+      <path d="M320 224l-64 64" />
+      <path d="M256 288l64 64" />
+    </svg>
+  );
+}
+
+export function PdfIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M368 415.86V72a24.07 24.07 0 0 0-24-24H72a24.07 24.07 0 0 0-24 24v352a40.12 40.12 0 0 0 40 40h328" />
+      <path d="M416 464a48 48 0 0 1-48-48V128h72a24 24 0 0 1 24 24v264a48 48 0 0 1-48 48z" />
+      <line x1="112" y1="192" x2="256" y2="192" />
+      <line x1="112" y1="240" x2="256" y2="240" />
+      <line x1="112" y1="288" x2="144" y2="288" />
+      <line x1="112" y1="336" x2="144" y2="336" />
+    </svg>
+  );
+}
+
 // Mapeo de las opciones del menú.
 export function iconoDeMenu(ruta) {
   switch (ruta) {

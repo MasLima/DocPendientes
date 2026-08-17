@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
+import Exportar from '../components/Exportar';
 
 function estadoColor(inc_estc) {
   if (inc_estc === 1) return '#e67e22';
@@ -143,7 +144,15 @@ export default function IncidenciasScreen() {
       ) : error ? (
         <div className="vacio" style={{ color: 'var(--rojo)' }}>{error}</div>
       ) : pestana === 'historial' ? (
-        <table className="tabla">
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <Exportar
+              nombreArchivo="incidencias"
+              columnas={['#', 'Cliente', 'Vendedor', 'Descripción', 'Fecha', 'Estado']}
+              filas={incidencias.map((it) => [it.inc_codi, it.cliente_nombre || it.ter_cote || 'Sin cliente', it.vendedor_nombre || '-', it.inc_desc, it.fe_regi, estadoTexto(it.inc_estc)])}
+            />
+          </div>
+          <table className="tabla">
           <thead>
             <tr><th>#</th><th>Cliente</th><th>Vendedor</th><th>Descripción</th><th>Fecha</th><th>Estado</th></tr>
           </thead>
@@ -160,25 +169,43 @@ export default function IncidenciasScreen() {
             ))}
           </tbody>
         </table>
+        </>
       ) : (
-        <table className="tabla">
-          <thead>
-            <tr><th>Cliente</th><th>Vendedor</th><th>Visitas</th><th>Última</th><th>Días</th><th>Frecuencia</th><th>Última incidencia</th></tr>
-          </thead>
-          <tbody>
-            {frecuencia.map((f) => (
-              <tr key={f.ter_cote} style={{ cursor: 'pointer' }} onClick={() => navigate(`/incidencias/${f.ter_cote}`)}>
-                <td style={{ fontWeight: 600 }}>{f.cliente_nombre || f.ter_cote}</td>
-                <td>{f.vendedor_nombre || '-'}</td>
-                <td className="mono">{f.total_visitas}</td>
-                <td className="mono">{f.ultima_visita || '-'}</td>
-                <td className="mono" style={{ fontWeight: 600 }}>{f.dias_desde_ultima === 0 ? 'hoy' : `${f.dias_desde_ultima} d`}</td>
-                <td className="mono">{f.promedio_dias_entre_visitas ? `cada ~${f.promedio_dias_entre_visitas} d` : '-'}</td>
-                <td style={{ maxWidth: 320 }}>{f.ultima_desc || '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <Exportar
+              nombreArchivo="incidencias_frecuencia"
+              columnas={['Cliente', 'Vendedor', 'Visitas', 'Última', 'Días', 'Frecuencia', 'Última incidencia']}
+              filas={frecuencia.map((f) => [
+                f.cliente_nombre || f.ter_cote,
+                f.vendedor_nombre || '-',
+                f.total_visitas,
+                f.ultima_visita || '-',
+                f.dias_desde_ultima === 0 ? 'hoy' : `${f.dias_desde_ultima} d`,
+                f.promedio_dias_entre_visitas ? `cada ~${f.promedio_dias_entre_visitas} d` : '-',
+                f.ultima_desc || '-'
+              ])}
+            />
+          </div>
+          <table className="tabla">
+            <thead>
+              <tr><th>Cliente</th><th>Vendedor</th><th>Visitas</th><th>Última</th><th>Días</th><th>Frecuencia</th><th>Última incidencia</th></tr>
+            </thead>
+            <tbody>
+              {frecuencia.map((f) => (
+                <tr key={f.ter_cote} style={{ cursor: 'pointer' }} onClick={() => navigate(`/incidencias/${f.ter_cote}`)}>
+                  <td style={{ fontWeight: 600 }}>{f.cliente_nombre || f.ter_cote}</td>
+                  <td>{f.vendedor_nombre || '-'}</td>
+                  <td className="mono">{f.total_visitas}</td>
+                  <td className="mono">{f.ultima_visita || '-'}</td>
+                  <td className="mono" style={{ fontWeight: 600 }}>{f.dias_desde_ultima === 0 ? 'hoy' : `${f.dias_desde_ultima} d`}</td>
+                  <td className="mono">{f.promedio_dias_entre_visitas ? `cada ~${f.promedio_dias_entre_visitas} d` : '-'}</td>
+                  <td style={{ maxWidth: 320 }}>{f.ultima_desc || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </div>
   );

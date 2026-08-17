@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
-import { DocumentIcon, CalendarIcon, TimeIcon } from '../components/Iconos';
+import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon } from '../components/Iconos';
+import Exportar from '../components/Exportar';
 
 function fmt(v) {
   return Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -122,16 +123,13 @@ function calcularAntiguedad(documentos, cantRangos, diasRango) {
   return resultado;
 }
 
-// ---------- Columnas comunes de la tabla de documentos ----------
+// ---------- Columnas de la tabla de documentos ----------
 const COL_DOC = 'Documento';
 const COL_NRO = 'Nro';
 const COL_EST = 'Estado';
 const COL_CONDP = 'Cond. Pago';
-const COL_IMPO = 'Importe Total';
-const COL_AMORT = 'Amortiza';
 const COL_SALDO = 'Saldo';
-const COL_BANCO = 'Banco';
-const COL_LETRA = 'N° Letra';
+const COL_NROUNICO = 'Nro. Único';
 const COL_VEND = 'Vendedor';
 
 function celdasBase(d) {
@@ -141,8 +139,6 @@ function celdasBase(d) {
       <td className="mono">{d.cob_seri}-{d.cob_nums}</td>
       <td className="mono">{d.estado_descripcion}</td>
       <td className="mono">{d.cond_pago_desc}</td>
-      <td className="mono">{d.moneda_signo} {fmt(d.importe_original)}</td>
-      <td className="mono">{d.moneda_signo} {fmt(d.pagado)}</td>
       <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>{d.moneda_signo} {fmt(d.saldo)}</td>
     </>
   );
@@ -151,11 +147,21 @@ function celdasBase(d) {
 function celdasFinales(d) {
   return (
     <>
-      <td className="mono">{d.banco_desc || (d.cob_banc ? d.cob_banc : '')}</td>
-      <td className="mono">{d.cob_nuni || ''}</td>
       <td className="mono">{d.vendedor_nombre || ''}</td>
     </>
   );
+}
+
+function filaExportar(d) {
+  return [
+    d.tipo_documento_desc || d.cob_codo,
+    `${d.cob_seri}-${d.cob_nums}`,
+    d.estado_descripcion,
+    d.cond_pago_desc,
+    `${d.moneda_signo} ${fmt(d.saldo)}`,
+    d.cob_nuni || '',
+    d.vendedor_nombre || ''
+  ];
 }
 
 // ---------- Componente principal ----------
@@ -209,6 +215,52 @@ export default function ClienteDetalleScreen() {
   if (!data) return <div className="vacio">Cargando...</div>;
 
   const { cliente, resumen, documentos, ultima_incidencia } = data;
+
+  const colPendientes = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, COL_NROUNICO, COL_VEND];
+  const filasPendientes = documentos.map((d) => filaExportar(d));
+
+  const colCronograma = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, 'Vencidos',
+    ...cronograma.rangos.map((r) => r.label), `Mayor a ${cronograma.rangos.length ? fmtFecha(cronograma.rangos[cronograma.rangos.length - 1].dFin) : ''}`, COL_VEND];
+  const filasCronograma = cronograma.filas.map((f) => [
+    f.doc.tipo_documento_desc || f.doc.cob_codo,
+    `${f.doc.cob_seri}-${f.doc.cob_nums}`,
+    f.doc.estado_descripcion,
+    f.doc.cond_pago_desc,
+    `${f.doc.moneda_signo} ${fmt(f.doc.saldo)}`,
+    f.vencidos ? fmt(f.vencidos) : '',
+    ...cronograma.rangos.map((r, i) => (f.rangos[i] ? fmt(f.rangos[i]) : '')),
+    f.mayores ? fmt(f.mayores) : '',
+    f.doc.vendedor_nombre || ''
+  ]);
+
+  const colAntiguedad = [COL_DOC, COL_NRO, COL_EST, COL_CONDP, COL_SALDO, 'Al día',
+    ...antiguedad.rangos.map((r) => r.label), `Mayores a ${antiguedad.rangos.length ? antiguedad.rangos[antiguedad.rangos.length - 1].max : ''} días`, COL_VEND];
+  const filasAntiguedad = antiguedad.filas.map((f) => [
+    f.doc.tipo_documento_desc || f.doc.cob_codo,
+    `${f.doc.cob_seri}-${f.doc.cob_nums}`,
+    f.doc.estado_descripcion,
+    f.doc.cond_pago_desc,
+    `${f.doc.moneda_signo} ${fmt(f.doc.saldo)}`,
+    f.alDia ? fmt(f.alDia) : '',
+    ...antiguedad.rangos.map((r, i) => (f.rangos[i] ? fmt(f.rangos[i]) : '')),
+    f.mayores ? fmt(f.mayores) : '',
+    f.doc.vendedor_nombre || ''
+  ]);
+
+  // Resumen por pestaña
+  const totalSaldo = documentos.reduce((a, d) => a + Number(d.saldo || 0), 0);
+  const resumenCronograma = [
+    ['Vencidos', ...cronograma.rangos.map((r) => r.label), `Mayor a ${cronograma.rangos.length ? fmtFecha(cronograma.rangos[cronograma.rangos.length - 1].dFin) : ''}`],
+    [fmt(cronograma.filas.reduce((a, f) => a + f.vencidos, 0)),
+     ...cronograma.rangos.map((_, i) => fmt(cronograma.filas.reduce((a, f) => a + (f.rangos[i] || 0), 0))),
+     fmt(cronograma.filas.reduce((a, f) => a + f.mayores, 0))]
+  ];
+  const resumenAntiguedad = [
+    ['Al día', ...antiguedad.rangos.map((r) => r.label), `Mayores a ${antiguedad.rangos.length ? antiguedad.rangos[antiguedad.rangos.length - 1].max : ''} días`],
+    [fmt(antiguedad.filas.reduce((a, f) => a + f.alDia, 0)),
+     ...antiguedad.rangos.map((_, i) => fmt(antiguedad.filas.reduce((a, f) => a + (f.rangos[i] || 0), 0))),
+     fmt(antiguedad.filas.reduce((a, f) => a + f.mayores, 0))]
+  ];
 
   return (
     <div>
@@ -277,11 +329,21 @@ export default function ClienteDetalleScreen() {
         >
           <TimeIcon size={18} /> Antigüedad de la Deuda
         </button>
+        <button
+          className="btn btn-ghost"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'resumen' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'resumen' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          onClick={() => setPestana('resumen')}
+        >
+          <StatsIcon size={18} /> Resumen
+        </button>
       </div>
 
       {pestana === 'pendientes' && (
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)', marginBottom: 8 }}>Documentos pendientes</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Documentos pendientes</div>
+            {documentos.length > 0 && <Exportar nombreArchivo={`documentos_${cliente.ter_cote}`} columnas={colPendientes} filas={filasPendientes} />}
+          </div>
           {documentos.length === 0 ? (
             <div className="vacio">Cliente sin documentos pendientes</div>
           ) : (
@@ -289,15 +351,14 @@ export default function ClienteDetalleScreen() {
               <table className="tabla">
                 <thead>
                   <tr>
-                    <th>{COL_DOC}</th><th>{COL_NRO}</th><th>{COL_EST}</th><th>{COL_CONDP}</th>
-                    <th>{COL_IMPO}</th><th>{COL_AMORT}</th><th>{COL_SALDO}</th>
-                    <th>{COL_BANCO}</th><th>{COL_LETRA}</th><th>{COL_VEND}</th>
+                    {colPendientes.map((c) => <th key={c}>{c}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {documentos.map((d) => (
                     <tr key={`${d.cob_tivo}-${d.cob_nuvo}`}>
                       {celdasBase(d)}
+                      <td className="mono">{d.cob_nuni || ''}</td>
                       {celdasFinales(d)}
                     </tr>
                   ))}
@@ -334,33 +395,33 @@ export default function ClienteDetalleScreen() {
           {documentos.length === 0 ? (
             <div className="vacio">Cliente sin documentos pendientes</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="tabla">
-                <thead>
-                  <tr>
-                    <th>{COL_DOC}</th><th>{COL_NRO}</th><th>{COL_EST}</th><th>{COL_CONDP}</th>
-                    <th>{COL_IMPO}</th><th>{COL_AMORT}</th><th>{COL_SALDO}</th>
-                    <th>Vencidos</th>
-                    {cronograma.rangos.map((r, i) => <th key={i} className="mono">{r.label}</th>)}
-                    <th>Mayores al Fecha Final</th>
-                    <th>{COL_BANCO}</th><th>{COL_LETRA}</th><th>{COL_VEND}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cronograma.filas.map((f, idx) => (
-                    <tr key={idx}>
-                      {celdasBase(f.doc)}
-                      <td className="mono" style={{ color: 'var(--rojo)', fontWeight: 700 }}>{f.vencidos ? fmt(f.vencidos) : ''}</td>
-                      {cronograma.rangos.map((r, i) => (
-                        <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
-                      ))}
-                      <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
-                      {celdasFinales(f.doc)}
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <Exportar nombreArchivo={`cronograma_${cliente.ter_cote}`} columnas={colCronograma} filas={filasCronograma} />
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="tabla">
+                  <thead>
+                    <tr>
+                      {colCronograma.map((c, i) => <th key={i} className="mono">{c}</th>)}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {cronograma.filas.map((f, idx) => (
+                      <tr key={idx}>
+                        {celdasBase(f.doc)}
+                        <td className="mono" style={{ color: 'var(--rojo)', fontWeight: 700 }}>{f.vencidos ? fmt(f.vencidos) : ''}</td>
+                        {cronograma.rangos.map((r, i) => (
+                          <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
+                        ))}
+                        <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
+                        {celdasFinales(f.doc)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -404,34 +465,67 @@ export default function ClienteDetalleScreen() {
           {documentos.length === 0 ? (
             <div className="vacio">Cliente sin documentos pendientes</div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="tabla">
-                <thead>
-                  <tr>
-                    <th>{COL_DOC}</th><th>{COL_NRO}</th><th>{COL_EST}</th><th>{COL_CONDP}</th>
-                    <th>{COL_IMPO}</th><th>{COL_AMORT}</th><th>{COL_SALDO}</th>
-                    <th>Al día</th>
-                    {antiguedad.rangos.map((r, i) => <th key={i} className="mono">{r.label}</th>)}
-                    <th>Mayores a {antiguedad.rangos.length ? antiguedad.rangos[antiguedad.rangos.length - 1].max : ''} días</th>
-                    <th>{COL_BANCO}</th><th>{COL_LETRA}</th><th>{COL_VEND}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {antiguedad.filas.map((f, idx) => (
-                    <tr key={idx}>
-                      {celdasBase(f.doc)}
-                      <td className="mono">{f.alDia ? fmt(f.alDia) : ''}</td>
-                      {antiguedad.rangos.map((r, i) => (
-                        <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
-                      ))}
-                      <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
-                      {celdasFinales(f.doc)}
+            <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <Exportar nombreArchivo={`antiguedad_${cliente.ter_cote}`} columnas={colAntiguedad} filas={filasAntiguedad} />
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="tabla">
+                  <thead>
+                    <tr>
+                      {colAntiguedad.map((c, i) => <th key={i} className="mono">{c}</th>)}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {antiguedad.filas.map((f, idx) => (
+                      <tr key={idx}>
+                        {celdasBase(f.doc)}
+                        <td className="mono">{f.alDia ? fmt(f.alDia) : ''}</td>
+                        {antiguedad.rangos.map((r, i) => (
+                          <td key={i} className="mono">{f.rangos[i] ? fmt(f.rangos[i]) : ''}</td>
+                        ))}
+                        <td className="mono" style={{ fontWeight: 700 }}>{f.mayores ? fmt(f.mayores) : ''}</td>
+                        {celdasFinales(f.doc)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
+        </div>
+      )}
+
+      {pestana === 'resumen' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Resumen</div>
+          </div>
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)', marginBottom: 6 }}>Documentos pendientes</div>
+            <div className="mutado">Documentos: <strong>{documentos.length}</strong></div>
+            <div className="mutado">Saldo total: <strong>{fmt(totalSaldo)}</strong></div>
+          </div>
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)' }}>Cronograma de vencimientos</div>
+              <Exportar nombreArchivo={`resumen_cronograma_${cliente.ter_cote}`} columnas={resumenCronograma[0]} filas={[resumenCronograma[1]]} />
+            </div>
+            <table className="tabla">
+              <thead><tr>{resumenCronograma[0].map((c, i) => <th key={i} className="mono">{c}</th>)}</tr></thead>
+              <tbody><tr>{resumenCronograma[1].map((c, i) => <td key={i} className="mono">{c}</td>)}</tr></tbody>
+            </table>
+          </div>
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)' }}>Antigüedad de la deuda</div>
+              <Exportar nombreArchivo={`resumen_antiguedad_${cliente.ter_cote}`} columnas={resumenAntiguedad[0]} filas={[resumenAntiguedad[1]]} />
+            </div>
+            <table className="tabla">
+              <thead><tr>{resumenAntiguedad[0].map((c, i) => <th key={i} className="mono">{c}</th>)}</tr></thead>
+              <tbody><tr>{resumenAntiguedad[1].map((c, i) => <td key={i} className="mono">{c}</td>)}</tr></tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

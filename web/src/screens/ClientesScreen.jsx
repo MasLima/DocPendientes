@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
+import Exportar from '../components/Exportar';
 
 const POR_PAGINA = 100;
 
@@ -74,24 +75,33 @@ export default function ClientesScreen() {
         <h2 style={{ margin: 0, fontSize: 20 }}>
           Clientes <span className="mutado">({filtrados.length})</span>
         </h2>
-        <div style={{ position: 'relative', width: 300 }}>
-          <input
-            className="input"
-            style={{ width: '100%', paddingRight: 34 }}
-            placeholder="Buscar por nombre, RUC o código..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-          {busqueda && (
-            <button
-              className="btn btn-ghost"
-              title="Limpiar búsqueda"
-              onClick={() => setBusqueda('')}
-              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 0, width: 20, height: 20, fontSize: 14, lineHeight: 1, color: 'var(--texto-suave)' }}
-            >
-              ✕
-            </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {filtrados.length > 0 && (
+            <Exportar
+              nombreArchivo="clientes"
+              columnas={['Código', 'Cliente', 'RUC', 'Teléfono', 'Cond. pago']}
+              filas={filtrados.map((c) => [c.ter_cote, c.ter_deno || '', c.ter_rucn || '-', c.ter_fono || '-', c.cond_pago_desc || c.ter_cocp || '-'])}
+            />
           )}
+          <div style={{ position: 'relative', width: 300 }}>
+            <input
+              className="input"
+              style={{ width: '100%', paddingRight: 34 }}
+              placeholder="Buscar por nombre, RUC o código..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+            {busqueda && (
+              <button
+                className="btn btn-ghost"
+                title="Limpiar búsqueda"
+                onClick={() => setBusqueda('')}
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', padding: 0, width: 20, height: 20, fontSize: 14, lineHeight: 1, color: 'var(--texto-suave)' }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

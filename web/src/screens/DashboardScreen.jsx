@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
+import Exportar from '../components/Exportar';
 
 function fmt(v) {
   return Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -87,6 +88,19 @@ export default function DashboardScreen() {
       </Card>
 
       <Card title="Top clientes deudores">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <Exportar
+            nombreArchivo="dashboard_top_clientes"
+            columnas={['#', 'Cliente', 'Código', 'Saldo', 'Días vencido']}
+            filas={(datos.topClientes || []).map((c, i) => [
+              i + 1,
+              c.cliente_nombre,
+              c.cob_cote,
+              `S/. ${fmt(c.saldo_pen)}${c.saldo_usd ? ` | US$ ${fmt(c.saldo_usd)}` : ''}`,
+              c.max_dias_vencido > 0 ? `${c.max_dias_vencido} d venc` : 'al día'
+            ])}
+          />
+        </div>
         <table className="tabla">
           <thead>
             <tr><th>#</th><th>Cliente</th><th>Saldo</th><th>Días vencido</th></tr>
@@ -110,6 +124,13 @@ export default function DashboardScreen() {
       </Card>
 
       <Card title="Saldos por vendedor">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <Exportar
+            nombreArchivo="dashboard_saldos_vendedor"
+            columnas={['Vendedor', 'Código', 'Clientes', 'Docs', 'Saldo S/.']}
+            filas={(datos.porVendedor || []).map((v) => [v.vendedor_nombre, v.ter_cote, v.num_clientes, v.total_documentos, `S/. ${fmt(v.saldo_pen)}`])}
+          />
+        </div>
         <table className="tabla">
           <thead>
             <tr><th>Vendedor</th><th>Clientes</th><th>Docs</th><th>Saldo S/.</th></tr>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
+import Exportar from '../components/Exportar';
 
 const ROLES = ['admin', 'empleado', 'vendedor'];
 
@@ -157,7 +158,16 @@ export default function ConfigUsuariosScreen() {
       <Link to="/configuracion" className="btn btn-ghost" style={{ display: 'inline-block', marginBottom: 12 }}>← Configuración</Link>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <h2 style={{ margin: 0, fontSize: 20 }}>Usuarios de la app</h2>
-        <button className="btn btn-verde" onClick={abrirNuevo}>+ Nuevo usuario</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {usuarios.length > 0 && (
+            <Exportar
+              nombreArchivo="usuarios"
+              columnas={['Login', 'Nombre', 'Perfil', 'Vendedor', 'Estado']}
+              filas={usuarios.map((u) => [u.use_logi, `${u.use_name || ''} ${u.use_apel || ''}`.trim(), u.rol, `${u.ter_cote}${u.vendedor_nombre ? ` (${u.vendedor_nombre})` : ''}`, u.activo ? 'Activo' : 'Inactivo'])}
+            />
+          )}
+          <button className="btn btn-verde" onClick={abrirNuevo}>+ Nuevo usuario</button>
+        </div>
       </div>
 
       {error && <div style={{ color: 'var(--rojo)', fontSize: 13, marginBottom: 12 }}>{error}</div>}

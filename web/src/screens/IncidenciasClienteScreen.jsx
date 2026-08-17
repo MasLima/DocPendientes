@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
+import Exportar from '../components/Exportar';
 
 function estadoColor(inc_estc) {
   if (inc_estc === 1) return '#e67e22';
@@ -83,7 +84,16 @@ export default function IncidenciasClienteScreen() {
         </button>
       </div>
 
-      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)', marginBottom: 8 }}>Historial</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Historial</div>
+        {incidencias.length > 0 && (
+          <Exportar
+            nombreArchivo={`incidencias_${codigo}`}
+            columnas={['#', 'Vendedor', 'Descripción', 'Acción', 'Fecha', 'Estado']}
+            filas={incidencias.map((it) => [it.inc_codi, it.vendedor_nombre || '-', it.inc_desc, it.inc_acci || '-', it.fe_regi, estadoTexto(it.inc_estc)])}
+          />
+        )}
+      </div>
       {cargando ? (
         <div className="vacio">Cargando...</div>
       ) : error ? (

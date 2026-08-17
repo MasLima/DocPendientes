@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
+import Exportar from '../components/Exportar';
 
 function fmt(v) {
   return Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -47,7 +48,15 @@ export default function ReportesScreen() {
       ) : error ? (
         <div className="vacio" style={{ color: 'var(--rojo)' }}>{error}</div>
       ) : (
-        <table className="tabla">
+        <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <Exportar
+              nombreArchivo="reporte_saldos_por_cliente"
+              columnas={['Cliente', 'Docs', 'Vencidos', 'Máx días', 'Saldo S/.']}
+              filas={data.map((r) => [r.cliente_nombre, r.total_documentos, r.total_vencidos, r.max_dias_vencido, `S/. ${fmt(r.saldo_pen)}`])}
+            />
+          </div>
+          <table className="tabla">
           <thead>
             <tr>
               <th>Cliente</th><th>Docs</th><th>Vencidos</th><th>Máx días</th><th>Saldo S/.</th>
@@ -65,6 +74,7 @@ export default function ReportesScreen() {
             ))}
           </tbody>
         </table>
+        </>
       )}
     </div>
   );

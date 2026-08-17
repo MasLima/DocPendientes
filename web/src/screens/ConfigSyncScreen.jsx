@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPost } from '../api/client';
+import Exportar from '../components/Exportar';
 
 const PROCESOS = [
   { clave: 'maestros', etiqueta: 'Maestros (vendedores y clientes)' },
@@ -81,7 +82,16 @@ export default function ConfigSyncScreen() {
         )}
       </div>
 
-      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)', marginBottom: 8 }}>Historial de sincronizaciones</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Historial de sincronizaciones</div>
+        {log.length > 0 && (
+          <Exportar
+            nombreArchivo="historial_sync"
+            columnas={['Proceso', 'Resultado', 'Fecha', 'Filas', 'Detalle']}
+            filas={log.map((l) => [l.proceso, l.resultado, l.fecha, l.filas, l.detalle || ''])}
+          />
+        )}
+      </div>
       {log.length === 0 ? (
         <div className="vacio">Sin registros</div>
       ) : (
