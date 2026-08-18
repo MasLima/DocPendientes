@@ -145,7 +145,7 @@ export default function ClientesScreen() {
                   <td>
                     <button
                       className="btn btn-ghost"
-                      style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5, border: '1px solid var(--verde)', color: 'var(--verde)', background: 'transparent', fontWeight: 700 }}
+                      style={{ padding: '6px 10px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--verde)', background: 'transparent', fontWeight: 700 }}
                       onClick={(e) => { e.stopPropagation(); navigate(`/clientes/${c.ter_cote}/incidencias`); }}
                     >
                       <EyeIcon size={14} /> Ver incidencias
