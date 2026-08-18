@@ -94,6 +94,39 @@ router.get('/documentos-antiguedad', async (req, res) => {
   }
 });
 
+// 3b) Totales por condicion de pago y por estado de documento.
+router.get('/documentos-totales', async (req, res) => {
+  try {
+    const { sql, params } = filtroVendedor(req);
+    const [porCond] = await pool.query(
+      `SELECT COALESCE(NULLIF(d.cond_pago_desc, ''), d.cob_cocp, 'Sin condición') AS condicion,
+              COUNT(*) AS total_documentos,
+              SUM(d.saldo) AS total_saldo
+       FROM vw_documentos_pendientes d
+       JOIN clientes v ON v.ter_cote = d.cob_cote
+       WHERE 1=1 ${sql}
+       GROUP BY condicion
+       ORDER BY total_saldo DESC`,
+      params
+    );
+    const [porEstado] = await pool.query(
+      `SELECT COALESCE(NULLIF(d.estado_descripcion, ''), 'Sin estado') AS estado,
+              COUNT(*) AS total_documentos,
+              SUM(d.saldo) AS total_saldo
+       FROM vw_documentos_pendientes d
+       JOIN clientes v ON v.ter_cote = d.cob_cote
+       WHERE 1=1 ${sql}
+       GROUP BY estado
+       ORDER BY total_saldo DESC`,
+      params
+    );
+    res.json({ porCondicion: porCond, porEstado });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // 4) Resumen de incidencias y frecuencia de visitas
 //    Por cliente: total de visitas/incidencias, ultima visita, promedio.
 router.get('/incidencias-resumen', async (req, res) => {

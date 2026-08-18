@@ -279,6 +279,20 @@ export default function ClienteDetalleScreen() {
 
   // Resumen por pestaña
   const totalSaldo = documentos.reduce((a, d) => a + Number(d.saldo || 0), 0);
+
+  // Totales por condición de pago
+  const porCondPago = documentos.reduce((acc, d) => {
+    const k = d.cond_pago_desc || d.cob_cocp || 'Sin condición';
+    acc[k] = (acc[k] || 0) + Number(d.saldo || 0);
+    return acc;
+  }, {});
+
+  // Totales por estado
+  const porEstado = documentos.reduce((acc, d) => {
+    const k = d.estado_descripcion || 'Sin estado';
+    acc[k] = (acc[k] || 0) + Number(d.saldo || 0);
+    return acc;
+  }, {});
   const resumenCronograma = [
     ['Vencidos', ...cronograma.rangos.map((r) => r.label), `Mayor a ${cronograma.rangos.length ? fmtFecha(cronograma.rangos[cronograma.rangos.length - 1].dFin) : ''}`],
     [fmt(cronograma.filas.reduce((a, f) => a + f.vencidos, 0)),
@@ -531,6 +545,32 @@ export default function ClienteDetalleScreen() {
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)', marginBottom: 6 }}>Documentos pendientes</div>
             <div className="mutado">Documentos: <strong>{documentos.length}</strong></div>
             <div className="mutado">Saldo total: <strong>{fmt(totalSaldo)}</strong></div>
+            {Object.keys(porCondPago).length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-suave)', textTransform: 'uppercase', marginBottom: 4 }}>Totales por condición de pago</div>
+                <table className="tabla">
+                  <thead><tr><th>Condición de pago</th><th>Saldo</th></tr></thead>
+                  <tbody>
+                    {Object.entries(porCondPago).map(([k, v]) => (
+                      <tr key={k}><td>{k}</td><td className="mono">{fmt(v)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {Object.keys(porEstado).length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--texto-suave)', textTransform: 'uppercase', marginBottom: 4 }}>Totales por estado</div>
+                <table className="tabla">
+                  <thead><tr><th>Estado</th><th>Saldo</th></tr></thead>
+                  <tbody>
+                    {Object.entries(porEstado).map(([k, v]) => (
+                      <tr key={k}><td>{k}</td><td className="mono">{fmt(v)}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
           <div className="card" style={{ marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
