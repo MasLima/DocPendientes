@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
 import Exportar from '../components/Exportar';
 import CampoBusqueda from '../components/CampoBusqueda';
+import { PlusIcon } from '../components/Iconos';
 
 function estadoColor(inc_estc) {
   if (inc_estc === 1) return '#e67e22';
@@ -87,7 +88,7 @@ export default function IncidenciasScreen() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <h2 style={{ margin: 0, fontSize: 20 }}>Incidencias</h2>
-        <button className="btn" onClick={() => navigate('/incidencias/nueva')}>+ Registrar incidencia</button>
+        <button className="btn btn-adicionar btn-accion" onClick={() => navigate('/incidencias/nueva')}><PlusIcon size={20} /> Registrar incidencia</button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>

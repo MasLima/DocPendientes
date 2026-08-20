@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
 import Exportar from '../components/Exportar';
+import { PlusIcon } from '../components/Iconos';
 
 function estadoColor(inc_estc) {
   if (inc_estc === 1) return '#e67e22';
@@ -79,8 +80,8 @@ export default function IncidenciasClienteScreen() {
       </div>
 
       <div style={{ marginBottom: 14 }}>
-        <button className="btn" onClick={() => navigate(`/incidencias/nueva?cliente=${codigo}&nombre=${encodeURIComponent(nombre)}`)}>
-          + Registrar incidencia
+        <button className="btn btn-adicionar btn-accion" onClick={() => navigate(`/incidencias/nueva?cliente=${codigo}&nombre=${encodeURIComponent(nombre)}`)}>
+          <PlusIcon size={20} /> Registrar incidencia
         </button>
       </div>
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
-import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, EyeIcon } from '../components/Iconos';
+import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, EyeIcon, PlusIcon } from '../components/Iconos';
 import Exportar from '../components/Exportar';
 
 function fmt(v) {
@@ -343,8 +343,8 @@ export default function ClienteDetalleScreen() {
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-        <button className="btn" onClick={() => navigate(`/incidencias/nueva?cliente=${cliente.ter_cote}&nombre=${encodeURIComponent(cliente.ter_deno)}`)}>
-          + Registrar incidencia
+        <button className="btn btn-adicionar btn-accion" onClick={() => navigate(`/incidencias/nueva?cliente=${cliente.ter_cote}&nombre=${encodeURIComponent(cliente.ter_deno)}`)}>
+          <PlusIcon size={20} /> Registrar incidencia
         </button>
         <button className="btn btn-verde" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => navigate(`/clientes/${cliente.ter_cote}/incidencias`)}>
           <EyeIcon size={16} /> Ver incidencias

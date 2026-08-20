@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { apiGet } from '../api/client';
 import CampoBusqueda from './CampoBusqueda';
-import { PeopleIcon } from './Iconos';
+import { PeopleIcon, CheckIcon, CloseIcon } from './Iconos';
 
 // Filtro de vendedores estilo Excel: botón que abre un panel desplegable.
 // - No inicia desplegado: se abre solo al hacer clic en el botón.
@@ -132,11 +132,11 @@ export default function FiltroVendedores({ token, seleccionados, onCambio }) {
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 10, borderTop: '1px solid var(--borde)', paddingTop: 10 }}>
-            <button className="btn" style={{ flex: 1, padding: '8px 10px', fontSize: 13 }} onClick={aplicar}>
-              Aplicar
+            <button className="btn btn-aceptar btn-accion" style={{ flex: 1, padding: '8px 10px', fontSize: 13 }} onClick={aplicar}>
+              <CheckIcon size={18} /> Aplicar
             </button>
-            <button className="btn btn-ghost" style={{ flex: 1, padding: '8px 10px', fontSize: 13, border: '1px solid var(--borde)' }} onClick={cancelar}>
-              Cancelar
+            <button className="btn btn-cancelar btn-accion" style={{ flex: 1, padding: '8px 10px', fontSize: 13 }} onClick={cancelar}>
+              <CloseIcon size={16} /> Cancelar
             </button>
           </div>
         </div>

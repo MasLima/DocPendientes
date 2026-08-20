@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import Exportar from '../components/Exportar';
+import { PlusIcon, CheckIcon, CloseIcon } from '../components/Iconos';
 
 const ROLES = ['admin', 'gerencia', 'sistemas', 'empleado', 'contabilidad', 'vendedor'];
 
@@ -145,8 +146,8 @@ export default function ConfigUsuariosScreen() {
           {error && <div style={{ color: 'var(--rojo)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn" type="submit">{editando ? 'Guardar cambios' : 'Crear usuario'}</button>
-            <button className="btn btn-ghost" type="button" onClick={() => setVerForm(false)}>Cancelar</button>
+            <button className="btn btn-aceptar btn-accion" type="submit"><CheckIcon size={22} /> {editando ? 'Guardar cambios' : 'Crear usuario'}</button>
+            <button className="btn btn-cancelar btn-accion" type="button" onClick={() => setVerForm(false)}><CloseIcon size={20} /> Cancelar</button>
           </div>
         </form>
       </div>
@@ -166,7 +167,7 @@ export default function ConfigUsuariosScreen() {
               filas={usuarios.map((u) => [u.use_logi, `${u.use_name || ''} ${u.use_apel || ''}`.trim(), u.rol, `${u.ter_cote}${u.vendedor_nombre ? ` (${u.vendedor_nombre})` : ''}`, u.activo ? 'Activo' : 'Inactivo'])}
             />
           )}
-          <button className="btn" onClick={abrirNuevo}>+ Nuevo usuario</button>
+          <button className="btn btn-adicionar btn-accion" onClick={abrirNuevo}><PlusIcon size={20} /> Nuevo usuario</button>
         </div>
       </div>
 

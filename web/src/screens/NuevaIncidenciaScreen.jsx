@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiPost, apiGet } from '../api/client';
 import CampoBusqueda from '../components/CampoBusqueda';
+import { CheckIcon, CloseIcon } from '../components/Iconos';
 
 export default function NuevaIncidenciaScreen() {
   const { token, user } = useAuth();
@@ -131,8 +132,8 @@ export default function NuevaIncidenciaScreen() {
           <div style={{ color: 'var(--rojo)', fontSize: 13, marginBottom: 12 }}>{error}</div>
         )}
 
-        <button className="btn btn-verde" type="submit" disabled={guardando} style={{ padding: 14, fontSize: 15 }}>
-          {guardando ? 'Guardando...' : 'Guardar incidencia'}
+        <button className="btn btn-aceptar btn-accion" type="submit" disabled={guardando} style={{ padding: 14, fontSize: 15 }}>
+          <CheckIcon size={22} /> {guardando ? 'Guardando...' : 'Guardar incidencia'}
         </button>
       </form>
     </div>

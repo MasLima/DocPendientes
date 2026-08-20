@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPut } from '../api/client';
+import { CheckIcon, CloseIcon } from '../components/Iconos';
 
 const PERMISOS_OBLIGATORIOS = {
   admin: ['clientes.ver', 'config.ver', 'config.permisos'],
@@ -110,8 +111,8 @@ export default function ConfigPerfilesScreen() {
 
           {mensaje && <div style={{ color: 'var(--verde)', fontSize: 13, marginBottom: 10 }}>{mensaje}</div>}
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn" onClick={guardar} disabled={guardando}>{guardando ? 'Guardando...' : 'Guardar cambios'}</button>
-            <button className="btn btn-ghost" onClick={() => setPerfilSel(null)}>Cancelar</button>
+            <button className="btn btn-aceptar btn-accion" onClick={guardar} disabled={guardando}><CheckIcon size={22} /> {guardando ? 'Guardando...' : 'Guardar cambios'}</button>
+            <button className="btn btn-cancelar btn-accion" onClick={() => setPerfilSel(null)}><CloseIcon size={20} /> Cancelar</button>
           </div>
         </>
       )}

@@ -91,9 +91,7 @@ export default function ClientesScreen() {
   }, [token, vendedoresSel, fechaInicial, diasRango, cantRangos, diasRangoAnti, cantRangosAnti]);
 
   useEffect(() => { cargar(); }, [cargar]);
-  useEffect(() => {
-    if (pestana !== 'pendientes') cargarResumen();
-  }, [pestana, cargarResumen]);
+  useEffect(() => { cargarResumen(); }, [cargarResumen]);
 
   // Filtrado en memoria (rapido incluso con 14k filas gracias a useMemo).
   const filtrados = useMemo(() => {
@@ -244,6 +242,16 @@ export default function ClientesScreen() {
             onChange={setBusqueda}
             placeholder="Buscar por nombre, RUC o código..."
           />
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 14, background: 'rgba(26,43,76,0.04)' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)', marginBottom: 6 }}>Resumen general</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22 }}>
+          <div className="mutado">Clientes con deuda: <strong style={{ color: 'var(--texto)' }}>{totales.total_clientes || 0}</strong></div>
+          <div className="mutado">Documentos pendientes: <strong style={{ color: 'var(--texto)' }}>{totales.total_documentos || 0}</strong></div>
+          <div className="mutado">Saldo S/. <strong style={{ color: 'var(--verde)' }}>{fmt(totales.saldo_pen)}</strong></div>
+          {totales.saldo_usd ? <div className="mutado">Saldo US$ <strong style={{ color: 'var(--verde)' }}>{fmt(totales.saldo_usd)}</strong></div> : null}
         </div>
       </div>
 
@@ -488,14 +496,6 @@ export default function ClientesScreen() {
 
           {pestana === 'resumen' && (
             <div>
-              <div className="card" style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)', marginBottom: 6 }}>Resumen general</div>
-                <div className="mutado">Clientes con deuda: <strong>{totales.total_clientes || 0}</strong></div>
-                <div className="mutado">Documentos pendientes: <strong>{totales.total_documentos || 0}</strong></div>
-                <div className="mutado">Saldo S/. <strong>{fmt(totales.saldo_pen)}</strong></div>
-                {totales.saldo_usd ? <div className="mutado">Saldo US$ <strong>{fmt(totales.saldo_usd)}</strong></div> : null}
-              </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div className="card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>

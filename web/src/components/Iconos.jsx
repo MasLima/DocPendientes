@@ -165,6 +165,32 @@ export function SearchIcon({ size = 18 }) {
   );
 }
 
+export function PlusIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <line x1="256" y1="112" x2="256" y2="400" />
+      <line x1="400" y1="256" x2="112" y2="256" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M416 128 192 384l-96-96" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <line x1="368" y1="368" x2="144" y2="144" />
+      <line x1="368" y1="144" x2="144" y2="368" />
+    </svg>
+  );
+}
+
 // Mapeo de las opciones del menú.
 export function iconoDeMenu(ruta) {
   switch (ruta) {

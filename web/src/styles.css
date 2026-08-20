@@ -50,6 +50,28 @@ a { text-decoration: none; color: inherit; }
 .btn-rojo { background: var(--rojo); }
 .btn-ghost { background: transparent; color: var(--texto-suave); }
 
+/* Botones accionables: adicionar/registrar = primary con +, aceptar/grabar = primary con check,
+   cancelar/deshacer = fondo palo rosa con X. */
+.btn-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.btn-adicionar, .btn-aceptar {
+  background: var(--primario);
+  color: var(--primario-texto);
+}
+.btn-cancelar {
+  background: #fde9ec;
+  color: #c0392b;
+  border: 1px solid #f5c6cb;
+}
+.btn-cancelar:hover { background: #f8d7da; }
+
 .card {
   background: var(--tarjeta);
   border: 1px solid var(--borde);
