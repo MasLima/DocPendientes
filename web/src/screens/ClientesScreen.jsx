@@ -49,6 +49,13 @@ export default function ClientesScreen() {
   const [cantRangos, setCantRangos] = useState(4);
   const [diasRangoAnti, setDiasRangoAnti] = useState(30);
   const [cantRangosAnti, setCantRangosAnti] = useState(4);
+  const [tipoRangoAnti, setTipoRangoAnti] = useState('mensual'); // semanal|quincenal|mensual|otro
+
+  const seleccionarTipoRango = (tipo) => {
+    setTipoRangoAnti(tipo);
+    const dias = { semanal: 7, quincenal: 15, mensual: 30 }[tipo];
+    if (dias) setDiasRangoAnti(dias);
+  };
 
   // El vendedor ve solo su cartera: ocultamos columna y filtro de vendedor.
   const puedeTodos = user?.permisos?.includes('clientes.ver_todos') || false;
@@ -174,15 +181,28 @@ export default function ClientesScreen() {
   for (let i = 0; i < cantRangosAnti; i++) {
     const min = i * diasRangoAnti + 1;
     const max = (i + 1) * diasRangoAnti;
-    rangosAnti.push(`${min} - ${max} d`);
+    rangosAnti.push(`${min} - ${max} días`);
   }
-  rangosAnti.push(`Mayores a ${cantRangosAnti * diasRangoAnti} d`);
+  rangosAnti.push(`Mayores a ${cantRangosAnti * diasRangoAnti} días`);
   const colAntiguedad = ['Código', 'Cliente', 'Saldo S/.', ...rangosAnti];
   const filasAntiguedad = filtrarResumen.antiguedad.map((r) => {
     const vals = [];
     for (let i = 0; i < rangosAnti.length; i++) vals.push(fmt(r[`r${i}`] || 0));
     return [r.ter_cote, r.ter_deno || '', `S/. ${fmt(r.saldo_total)}`, ...vals];
   });
+
+  // Totales por columna para las pestanas de cronograma y antiguedad.
+  const totalesColumna = (filas, nRangos) => {
+    const t = { saldo: 0, r: [] };
+    for (let i = 0; i <= nRangos + 1; i++) t.r.push(0);
+    filas.forEach((r) => {
+      t.saldo += Number(r.saldo_total || 0);
+      for (let i = 0; i <= nRangos + 1; i++) t.r[i] += Number(r[`r${i}`] || 0);
+    });
+    return t;
+  };
+  const totCronograma = totalesColumna(filtrarResumen.cronograma, cantRangos);
+  const totAntiguedad = totalesColumna(filtrarResumen.antiguedad, cantRangosAnti);
 
   // Resumen de todas las pestanas en una (totales)
   const totales = resumenData?.totales || {};
@@ -309,25 +329,48 @@ export default function ClientesScreen() {
 
           {pestana === 'cronograma' && (
             <div>
-              <div className="card" style={{ marginBottom: 14 }}>
-                <div className="mutado" style={{ marginBottom: 8 }}>Cronograma de vencimientos por cliente</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-                  <label className="mutado">
-                    Cantidad de Rangos{' '}
-                    <input className="input" type="number" min="1" max="30" style={{ width: 90 }} value={cantRangos}
-                      onChange={(e) => setCantRangos(Math.max(1, Number(e.target.value) || 1))} />
-                  </label>
-                  <label className="mutado">
-                    Días por Rango{' '}
-                    <input className="input" type="number" min="1" max="365" style={{ width: 90 }} value={diasRango}
-                      onChange={(e) => setDiasRango(Math.max(1, Number(e.target.value) || 1))} />
-                  </label>
-                  <label className="mutado">
-                    Fecha Inicial{' '}
-                    <input className="input" type="date" style={{ width: 150 }} value={fechaInicial}
-                      onChange={(e) => setFechaInicial(e.target.value)} />
-                  </label>
+              <div className="card" style={{ marginBottom: 14, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
+                <div>
+                  <div className="mutado" style={{ marginBottom: 8 }}>Cronograma de vencimientos por cliente</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                    <label className="mutado">
+                      Cantidad de Rangos{' '}
+                      <input className="input" type="number" min="1" max="30" style={{ width: 90 }} value={cantRangos}
+                        onChange={(e) => setCantRangos(Math.max(1, Number(e.target.value) || 1))} />
+                    </label>
+                    <label className="mutado">
+                      Días por Rango{' '}
+                      <input className="input" type="number" min="1" max="365" style={{ width: 90 }} value={diasRango}
+                        onChange={(e) => setDiasRango(Math.max(1, Number(e.target.value) || 1))} />
+                    </label>
+                    <label className="mutado">
+                      Fecha Inicial{' '}
+                      <input className="input" type="date" style={{ width: 150 }} value={fechaInicial}
+                        onChange={(e) => setFechaInicial(e.target.value)} />
+                    </label>
+                  </div>
                 </div>
+                {filtrarResumen.cronograma.length > 0 && (
+                  <div className="card" style={{ margin: 0, padding: '8px 12px', background: 'var(--fondo)' }}>
+                    <div className="mutado" style={{ fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', fontSize: 11 }}>Totales por columna</div>
+                    <table className="tabla">
+                      <thead>
+                        <tr>
+                          <th className="mono">Saldo</th>
+                          {rangosCrono.map((r, i) => <th key={i} className="mono">{r}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>S/. {fmt(totCronograma.saldo)}</td>
+                          {totCronograma.r.map((v, i) => (
+                            <td key={i} className="mono" style={{ fontWeight: 700, color: i === 0 ? 'var(--rojo)' : 'var(--texto)' }}>{fmt(v)}</td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
               {filtrarResumen.cronograma.length === 0 ? (
                 <div className="vacio">Sin resultados</div>
@@ -359,20 +402,61 @@ export default function ClientesScreen() {
 
           {pestana === 'antiguedad' && (
             <div>
-              <div className="card" style={{ marginBottom: 14 }}>
-                <div className="mutado" style={{ marginBottom: 8 }}>Antigüedad de la deuda por cliente</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-                  <label className="mutado">
-                    Cantidad de Rangos{' '}
-                    <input className="input" type="number" min="1" max="30" style={{ width: 90 }} value={cantRangosAnti}
-                      onChange={(e) => setCantRangosAnti(Math.max(1, Number(e.target.value) || 1))} />
-                  </label>
-                  <label className="mutado">
-                    Días por Rango{' '}
-                    <input className="input" type="number" min="1" max="365" style={{ width: 90 }} value={diasRangoAnti}
-                      onChange={(e) => setDiasRangoAnti(Math.max(1, Number(e.target.value) || 1))} />
-                  </label>
+              <div className="card" style={{ marginBottom: 14, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
+                <div>
+                  <div className="mutado" style={{ marginBottom: 8 }}>Antigüedad de la deuda por cliente</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                    <span className="mutado">Rango por:</span>
+                    {[
+                      { clave: 'semanal', texto: 'Semanal' },
+                      { clave: 'quincenal', texto: 'Quincenal' },
+                      { clave: 'mensual', texto: 'Mensual' },
+                      { clave: 'otro', texto: 'Otro' }
+                    ].map((o) => (
+                      <button
+                        key={o.clave}
+                        className="btn btn-ghost"
+                        style={{ border: '1px solid var(--borde)', background: tipoRangoAnti === o.clave ? 'var(--primario)' : 'var(--tarjeta)', color: tipoRangoAnti === o.clave ? '#fff' : 'var(--texto)' }}
+                        onClick={() => seleccionarTipoRango(o.clave)}
+                      >
+                        {o.texto}
+                      </button>
+                    ))}
+                    {tipoRangoAnti === 'otro' && (
+                      <label className="mutado">
+                        Días por Rango{' '}
+                        <input className="input" type="number" min="1" max="365" style={{ width: 90 }} value={diasRangoAnti}
+                          onChange={(e) => setDiasRangoAnti(Math.max(1, Number(e.target.value) || 1))} />
+                      </label>
+                    )}
+                    <label className="mutado">
+                      Cantidad de Rangos{' '}
+                      <input className="input" type="number" min="1" max="30" style={{ width: 90 }} value={cantRangosAnti}
+                        onChange={(e) => setCantRangosAnti(Math.max(1, Number(e.target.value) || 1))} />
+                    </label>
+                  </div>
                 </div>
+                {filtrarResumen.antiguedad.length > 0 && (
+                  <div className="card" style={{ margin: 0, padding: '8px 12px', background: 'var(--fondo)' }}>
+                    <div className="mutado" style={{ fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', fontSize: 11 }}>Totales por columna</div>
+                    <table className="tabla">
+                      <thead>
+                        <tr>
+                          <th className="mono">Saldo</th>
+                          {rangosAnti.map((r, i) => <th key={i} className="mono">{r}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>S/. {fmt(totAntiguedad.saldo)}</td>
+                          {totAntiguedad.r.map((v, i) => (
+                            <td key={i} className="mono" style={{ fontWeight: 700, color: i === 0 ? 'var(--verde)' : 'var(--texto)' }}>{fmt(v)}</td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
               {filtrarResumen.antiguedad.length === 0 ? (
                 <div className="vacio">Sin resultados</div>
