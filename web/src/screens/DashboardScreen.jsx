@@ -89,56 +89,6 @@ export default function DashboardScreen() {
         <div className="mutado" style={{ marginTop: 6 }}>Total documentos: {totalDocs}</div>
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-        <Card title="Totales por condición de pago">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <Exportar
-              nombreArchivo="dashboard_por_condicion"
-              columnas={['Condición de pago', 'Documentos', 'Saldo']}
-              filas={(datos.totales.porCondicion || []).map((r) => [r.condicion, r.total_documentos, `S/. ${fmt(r.total_saldo)}`])}
-            />
-          </div>
-          <table className="tabla">
-            <thead>
-              <tr><th>Condición</th><th>Docs</th><th>Saldo</th></tr>
-            </thead>
-            <tbody>
-              {(datos.totales.porCondicion || []).map((r) => (
-                <tr key={r.condicion}>
-                  <td>{r.condicion}</td>
-                  <td className="mono">{r.total_documentos}</td>
-                  <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>S/. {fmt(r.total_saldo)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-
-        <Card title="Totales por estado">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <Exportar
-              nombreArchivo="dashboard_por_estado"
-              columnas={['Estado', 'Documentos', 'Saldo']}
-              filas={(datos.totales.porEstado || []).map((r) => [r.estado, r.total_documentos, `S/. ${fmt(r.total_saldo)}`])}
-            />
-          </div>
-          <table className="tabla">
-            <thead>
-              <tr><th>Estado</th><th>Docs</th><th>Saldo</th></tr>
-            </thead>
-            <tbody>
-              {(datos.totales.porEstado || []).map((r) => (
-                <tr key={r.estado}>
-                  <td>{r.estado}</td>
-                  <td className="mono">{r.total_documentos}</td>
-                  <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>S/. {fmt(r.total_saldo)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      </div>
-
       <Card title="Top clientes deudores">
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
           <Exportar
@@ -227,6 +177,56 @@ export default function DashboardScreen() {
           </tbody>
         </table>
       </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Card title="Totales por condición de pago">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <Exportar
+              nombreArchivo="dashboard_por_condicion"
+              columnas={['Condición de pago', 'Documentos', 'Saldo']}
+              filas={(datos.totales.porCondicion || []).map((r) => [r.condicion, r.total_documentos, `S/. ${fmt(r.total_saldo)}`])}
+            />
+          </div>
+          <table className="tabla">
+            <thead>
+              <tr><th>Condición</th><th>Docs</th><th>Saldo</th></tr>
+            </thead>
+            <tbody>
+              {(datos.totales.porCondicion || []).map((r) => (
+                <tr key={r.condicion}>
+                  <td>{r.condicion}</td>
+                  <td className="mono">{r.total_documentos}</td>
+                  <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>S/. {fmt(r.total_saldo)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+
+        <Card title="Totales por estado">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <Exportar
+              nombreArchivo="dashboard_por_estado"
+              columnas={['Estado', 'Documentos', 'Saldo']}
+              filas={(datos.totales.porEstado || []).map((r) => [r.estado, r.total_documentos, `S/. ${fmt(r.total_saldo)}`])}
+            />
+          </div>
+          <table className="tabla">
+            <thead>
+              <tr><th>Estado</th><th>Docs</th><th>Saldo</th></tr>
+            </thead>
+            <tbody>
+              {(datos.totales.porEstado || []).map((r) => (
+                <tr key={r.estado}>
+                  <td>{r.estado}</td>
+                  <td className="mono">{r.total_documentos}</td>
+                  <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>S/. {fmt(r.total_saldo)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </div>
 
       <button className="btn btn-ghost" onClick={() => { setRefreshing(true); cargar(); }} disabled={refreshing}>
         {refreshing ? 'Actualizando...' : 'Actualizar'}

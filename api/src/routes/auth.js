@@ -1,8 +1,31 @@
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const pool = require('../config/db');
 const { cargarPermisos } = require('../middleware/auth');
+
+// Verifica la clave contra el hash almacenado.
+// Soporta bcrypt (prefijo $2) y hashes legados SHA1 del ERP (40 hex).
+// Si el hash es SHA1 y la clave coincide, la migra a bcrypt.
+async function verificarClave(use_logi, use_pass, use_pass_ingresada) {
+  if (!use_pass) return false;
+
+  if (use_pass.startsWith('$2')) {
+    return bcrypt.compare(use_pass_ingresada, use_pass);
+  }
+
+  if (/^[0-9a-fA-F]{40}$/.test(use_pass)) {
+    const sha1 = crypto.createHash('sha1').update(use_pass_ingresada).digest('hex');
+    if (sha1.toLowerCase() !== use_pass.toLowerCase()) return false;
+    // Migrar a bcrypt para los siguientes logins.
+    const nuevo = await bcrypt.hash(use_pass_ingresada, 10);
+    await pool.query('UPDATE usuarios_app SET use_pass = ? WHERE use_logi = ?', [nuevo, use_logi]);
+    return true;
+  }
+
+  return false;
+}
 
 router.post('/login', async (req, res) => {
   const { use_logi, use_pass } = req.body;
@@ -25,9 +48,9 @@ router.post('/login', async (req, res) => {
     }
 
     const usuario = rows[0];
-    const ok = await bcrypt.compare(use_pass, usuario.use_pass);
+    const ok = await verificarClave(usuario.use_logi, usuario.use_pass, use_pass);
     if (!ok) {
-      return res.status(401).json({ error: 'Credenciales invalidas' });
+      return res.status(401).json({ error: 'Credenciales invalidas. Si es tu primer ingreso, usa tu usuario y contraseña del ERP.' });
     }
 
     const infoPermisos = await cargarPermisos(usuario.id);

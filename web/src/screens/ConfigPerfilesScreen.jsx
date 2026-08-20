@@ -5,7 +5,10 @@ import { apiGet, apiPut } from '../api/client';
 
 const PERMISOS_OBLIGATORIOS = {
   admin: ['clientes.ver', 'config.ver', 'config.permisos'],
+  gerencia: ['clientes.ver', 'config.ver', 'config.permisos'],
+  sistemas: ['clientes.ver', 'config.ver', 'config.permisos'],
   empleado: ['clientes.ver'],
+  contabilidad: ['clientes.ver'],
   vendedor: ['clientes.ver']
 };
 

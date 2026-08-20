@@ -64,6 +64,110 @@ async function syncMaestros() {
   return { vendedores: vendedores.length, clientes: clientes.length };
 }
 
+// Areas del ERP que definen perfiles de usuario:
+//   100001 Gerencia -> gerencia | 100002 Tesoreria -> empleado
+//   100003 Contabilidad -> contabilidad | 100004 Ventas -> vendedor
+//   100008 Sistemas -> sistemas
+// Solo empleados activos (ter_stat='10') con credenciales ERP (mtguse001).
+const AREAS_PERFILES = {
+  '100001': 'gerencia',
+  '100002': 'empleado',
+  '100003': 'contabilidad',
+  '100004': 'vendedor',
+  '100008': 'sistemas'
+};
+
+// Sincroniza usuarios vendedores/empleados desde el ERP.
+// Solo empleados activos (ter_stat='10') de las areas definidas en AREAS_PERFILES
+// y que tengan credenciales en mtguse001 (use_logi + use_pass).
+// - Crea/actualiza el usuario local con la clave heredada del ERP (SHA1).
+// - No sobrescribe claves ya migradas a bcrypt.
+// - Comportamiento autoritativo: usuarios ERP que ya no califiquen se desactivan.
+// - Nunca toca usuarios manuales (origen = 'MANUAL', ej. admins puros).
+async function syncUsuarios() {
+  const areas = Object.keys(AREAS_PERFILES).map(() => '?').join(',');
+  const [usuarios] = await erp.query(
+    `SELECT t.ter_cote, t.ter_deno, t.ter_area, t.ter_stat,
+            u.use_logi, u.use_name, u.use_apel, u.use_pass, u.use_tipo
+     FROM mplter001 t
+     LEFT JOIN mtguse001 u ON u.use_emno = t.ter_cote
+     WHERE t.ter_tite = '300000'
+       AND t.ter_stat = '10'
+       AND t.ter_area IN (${areas})`,
+    Object.keys(AREAS_PERFILES)
+  );
+
+  let creados = 0;
+  let actualizados = 0;
+  let desactivados = 0;
+
+  // Usuarios ERP sincronizados que deben permanecer activos (use_logi).
+  const activos = new Set();
+
+  for (const u of usuarios) {
+    // Solo se registra si tiene credenciales ERP (login + clave).
+    if (!u.use_logi || !u.use_pass) continue;
+
+    const rol = AREAS_PERFILES[u.ter_area];
+    if (!rol) continue;
+
+    activos.add(u.use_logi);
+
+    // No pisar claves bcrypt ya migradas.
+    const [exist] = await app.query(
+      `SELECT id, use_pass FROM usuarios_app WHERE use_logi = ?`,
+      [u.use_logi]
+    );
+
+    let use_pass;
+    if (exist.length > 0 && exist[0].use_pass && exist[0].use_pass.startsWith('$2')) {
+      use_pass = exist[0].use_pass;
+    } else {
+      use_pass = u.use_pass; // SHA1 heredado del ERP
+    }
+
+    const nombre = u.use_name || '';
+    const apellido = u.use_apel || '';
+
+    const [res] = await app.query(
+      `INSERT INTO usuarios_app
+         (ter_cote, use_logi, use_pass, use_name, use_apel, rol, activo, origen)
+       VALUES (?, ?, ?, ?, ?, ?, 1, 'ERP')
+       ON DUPLICATE KEY UPDATE
+         ter_cote = VALUES(ter_cote),
+         use_pass = VALUES(use_pass),
+         use_name = VALUES(use_name),
+         use_apel = VALUES(use_apel),
+         rol = VALUES(rol),
+         activo = 1,
+         origen = 'ERP'`,
+      [u.ter_cote, u.use_logi, use_pass, nombre, apellido, rol]
+    );
+
+    if (res.affectedRows === 1) creados++;
+    else actualizados++;
+  }
+
+  // Desactivar usuarios ERP que ya no califiquen (inactivos, fuera de area, sin ERP).
+  const [erpUsers] = await app.query(
+    `SELECT use_logi FROM usuarios_app WHERE origen = 'ERP'`
+  );
+  for (const u of erpUsers) {
+    if (!activos.has(u.use_logi)) {
+      await app.query(
+        `UPDATE usuarios_app SET activo = 0 WHERE use_logi = ? AND origen = 'ERP'`,
+        [u.use_logi]
+      );
+      desactivados++;
+    }
+  }
+
+  await logSync('USUARIOS', creados + actualizados,
+    'OK', `nuevos=${creados} actualizados=${actualizados} desactivados=${desactivados}`);
+
+  return { usuarios: creados + actualizados, creados, actualizados, desactivados };
+}
+
 async function syncCondicionesPago() {
   const [conds] = await erp.query(
     `SELECT com_cocp, com_dscp, com_ticp FROM mplcom010`
@@ -272,11 +376,11 @@ async function syncIncidencias() {
 }
 
 // Sincronizacion completa: maestros + condiciones + tipos + bancos
-// + documentos + incidencias.
+// + documentos + incidencias + usuarios.
 // 'procesos' permite ejecutar solo un subconjunto (ej: ['maestros']).
-// Los nombres validos: maestros, condiciones, tipos, bancos, documentos, incidencias.
+// Los nombres validos: maestros, condiciones, tipos, bancos, documentos, incidencias, usuarios.
 async function syncCompleto(procesos = null) {
-  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias'];
+  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios'];
   const seleccion = procesos && procesos.length ? procesos : validos;
   const resultados = {};
 
@@ -286,6 +390,7 @@ async function syncCompleto(procesos = null) {
   if (seleccion.includes('bancos')) resultados.bancos = await syncBancos();
   if (seleccion.includes('documentos')) resultados.documentos = await syncDocumentos();
   if (seleccion.includes('incidencias')) resultados.incidencias = await syncIncidencias();
+  if (seleccion.includes('usuarios')) resultados.usuarios = await syncUsuarios();
 
   return resultados;
 }
@@ -297,5 +402,6 @@ module.exports = {
   syncBancos,
   syncDocumentos,
   syncIncidencias,
+  syncUsuarios,
   syncCompleto
 };

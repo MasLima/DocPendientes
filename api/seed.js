@@ -47,12 +47,13 @@ async function seed() {
 
   for (const [logi, rol, cote, nombre] of usuarios) {
     await pool.query(
-      `INSERT INTO usuarios_app (ter_cote, use_logi, use_pass, use_name, use_apel, rol)
-       VALUES (?, ?, ?, ?, NULL, ?)
+      `INSERT INTO usuarios_app (ter_cote, use_logi, use_pass, use_name, use_apel, rol, origen)
+       VALUES (?, ?, ?, ?, NULL, ?, 'MANUAL')
        ON DUPLICATE KEY UPDATE use_pass = VALUES(use_pass),
                                ter_cote = VALUES(ter_cote),
                                use_name = VALUES(use_name),
-                               rol = VALUES(rol)`,
+                               rol = VALUES(rol),
+                               origen = 'MANUAL'`,
       [cote || '0', logi, hash, nombre, rol]
     );
   }

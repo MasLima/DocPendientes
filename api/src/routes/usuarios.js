@@ -38,7 +38,8 @@ router.get('/vendedores-disponibles', requirePermiso('config.usuarios'), async (
   }
 });
 
-// Crear usuario. El vendedor debe existir en el ERP (tabla vendedores).
+// Crear usuario. El vendedor debe existir en el ERP (tabla vendedores),
+// salvo admins puros (ter_cote = '0') que no estan en el ERP.
 // Body: { ter_cote, use_logi, use_pass, use_name, use_apel, rol, permisos? }
 router.post('/', requirePermiso('config.usuarios'), async (req, res) => {
   const { ter_cote, use_logi, use_pass, use_name, use_apel, rol = 'vendedor', permisos = null } = req.body;
@@ -46,21 +47,24 @@ router.post('/', requirePermiso('config.usuarios'), async (req, res) => {
   if (!ter_cote || !use_logi || !use_pass) {
     return res.status(400).json({ error: 'Se requiere ter_cote, use_logi y use_pass' });
   }
-  if (!['admin', 'empleado', 'vendedor'].includes(rol)) {
+  const rolesValidos = ['admin', 'gerencia', 'sistemas', 'empleado', 'contabilidad', 'vendedor'];
+  if (!rolesValidos.includes(rol)) {
     return res.status(400).json({ error: 'Rol invalido' });
   }
 
   try {
-    // El vendedor debe existir en el ERP (tabla vendedores sincronizada)
-    const [vend] = await pool.query('SELECT ter_cote FROM vendedores WHERE ter_cote = ?', [ter_cote]);
-    if (vend.length === 0) {
-      return res.status(400).json({ error: 'El vendedor no existe en el ERP (tabla vendedores)' });
+    // Admin puro (ter_cote '0') no requiere vendedor en el ERP.
+    if (ter_cote !== '0') {
+      const [vend] = await pool.query('SELECT ter_cote FROM vendedores WHERE ter_cote = ?', [ter_cote]);
+      if (vend.length === 0) {
+        return res.status(400).json({ error: 'El vendedor no existe en el ERP (tabla vendedores)' });
+      }
     }
 
     const hash = await bcrypt.hash(use_pass, 10);
     const [result] = await pool.query(
-      `INSERT INTO usuarios_app (ter_cote, use_logi, use_pass, use_name, use_apel, rol, permisos)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO usuarios_app (ter_cote, use_logi, use_pass, use_name, use_apel, rol, permisos, origen)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'MANUAL')`,
       [ter_cote, use_logi, hash, use_name || null, use_apel || null, rol, permisos]
     );
     res.status(201).json({ id: result.insertId, message: 'Usuario creado' });
@@ -91,7 +95,8 @@ router.put('/:id', requirePermiso('config.usuarios'), async (req, res) => {
     if (use_name !== undefined) { sets.push('use_name = ?'); params.push(use_name); }
     if (use_apel !== undefined) { sets.push('use_apel = ?'); params.push(use_apel); }
     if (rol !== undefined) {
-      if (!['admin', 'empleado', 'vendedor'].includes(rol)) {
+      const rolesValidos = ['admin', 'gerencia', 'sistemas', 'empleado', 'contabilidad', 'vendedor'];
+      if (!rolesValidos.includes(rol)) {
         return res.status(400).json({ error: 'Rol invalido' });
       }
       sets.push('rol = ?'); params.push(rol);
