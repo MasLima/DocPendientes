@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import Exportar from '../components/Exportar';
 
-const ROLES = ['admin', 'empleado', 'vendedor'];
+const ROLES = ['admin', 'gerencia', 'sistemas', 'empleado', 'contabilidad', 'vendedor'];
 
 const formVacio = { rol: 'vendedor', activo: true };
 
