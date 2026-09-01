@@ -26,7 +26,9 @@ INSERT IGNORE INTO permisos (codigo, descripcion, modulo) VALUES
   ('config.ver',        'Ver la pantalla de configuracion', 'config'),
   ('config.usuarios',   'Gestionar usuarios (crear/editar/desactivar)', 'config'),
   ('config.datos',      'Editar datos de configuracion', 'config'),
-  ('config.permisos',   'Editar permisos de usuarios', 'config');
+  ('config.permisos',   'Editar permisos de usuarios', 'config'),
+  ('articulos.ver',     'Ver el catalogo de articulos', 'articulos'),
+  ('articulos.detalle', 'Ver detalle de un articulo', 'articulos');
 
 -- Admin (acceso total) - admins manuales
 DELETE FROM roles_permisos WHERE rol = 'admin';
@@ -51,7 +53,8 @@ WHERE codigo IN ('clientes.ver','clientes.ver_todos','clientes.detalle',
                  'documentos.ver',
                  'incidencias.ver','incidencias.ver_todas','incidencias.crear',
                  'reportes.saldos','reportes.vendedor',
-                 'dashboard.ver');
+                 'dashboard.ver',
+                 'articulos.ver','articulos.detalle');
 
 -- Vendedor (Ventas): perfil vendedor actual
 DELETE FROM roles_permisos WHERE rol = 'vendedor';
@@ -61,7 +64,8 @@ WHERE codigo IN ('clientes.ver','clientes.detalle',
                  'documentos.ver',
                  'incidencias.ver','incidencias.crear',
                  'reportes.saldos',
-                 'dashboard.ver');
+                 'dashboard.ver',
+                 'articulos.ver','articulos.detalle');
 
 -- Contabilidad: clientes + reportes + dashboard. Sin procesos (documentos),
 -- sin incidencias, sin config ni sync.
@@ -70,7 +74,8 @@ INSERT INTO roles_permisos (rol, permiso)
 SELECT 'contabilidad', codigo FROM permisos
 WHERE codigo IN ('clientes.ver','clientes.ver_todos','clientes.detalle',
                  'reportes.saldos','reportes.vendedor',
-                 'dashboard.ver');
+                 'dashboard.ver',
+                 'articulos.ver','articulos.detalle');
 
 -- ============================================================
 -- usuarios_app: columna 'origen' para distinguir ERP / MANUAL.

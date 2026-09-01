@@ -15,6 +15,7 @@ export default function Layout() {
   const items = [];
   if (puede('dashboard.ver')) items.push({ ruta: '/', texto: 'Dashboard' });
   if (puede('clientes.ver')) items.push({ ruta: '/clientes', texto: 'Clientes' });
+  if (puede('articulos.ver')) items.push({ ruta: '/articulos', texto: 'Articulos' });
   if (puede('reportes.saldos')) items.push({ ruta: '/reportes', texto: 'Reportes' });
   if (puede('incidencias.ver')) items.push({ ruta: '/incidencias', texto: 'Incidencias' });
   if (puede('sync.ejecutar') || puede('config.usuarios')) {

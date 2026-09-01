@@ -10,15 +10,19 @@ const PROCESOS = [
   { clave: 'tipos', etiqueta: 'Tipos de documento' },
   { clave: 'bancos', etiqueta: 'Bancos' },
   { clave: 'documentos', etiqueta: 'Documentos pendientes' },
-  { clave: 'incidencias', etiqueta: 'Incidencias' }
+  { clave: 'incidencias', etiqueta: 'Incidencias' },
+  { clave: 'usuarios', etiqueta: 'Usuarios' },
+  { clave: 'articulos', etiqueta: 'Articulos' }
 ];
 
 export default function ConfigSyncScreen() {
   const { token } = useAuth();
   const [log, setLog] = useState([]);
+  const [estado, setEstado] = useState([]);
   const [ejecutando, setEjecutando] = useState(false);
   const [resultado, setResultado] = useState('');
   const [procesos, setProcesos] = useState(PROCESOS.map((p) => p.clave));
+  const [modo, setModo] = useState('parcial');
 
   const cargarLog = useCallback(async () => {
     try {
@@ -27,7 +31,14 @@ export default function ConfigSyncScreen() {
     } catch { /* sin permiso o error */ }
   }, [token]);
 
-  useEffect(() => { cargarLog(); }, [cargarLog]);
+  const cargarEstado = useCallback(async () => {
+    try {
+      const data = await apiGet('/sync/estado', token);
+      setEstado(Array.isArray(data) ? data : []);
+    } catch { /* sin permiso o error */ }
+  }, [token]);
+
+  useEffect(() => { cargarLog(); cargarEstado(); }, [cargarLog, cargarEstado]);
 
   const toggleProceso = (clave) => {
     setProcesos((prev) => (prev.includes(clave) ? prev.filter((p) => p !== clave) : [...prev, clave]));
@@ -37,7 +48,7 @@ export default function ConfigSyncScreen() {
     setEjecutando(true);
     setResultado('');
     try {
-      const r = await apiPost('/sync/ejecutar', { procesos }, token);
+      const r = await apiPost('/sync/ejecutar', { procesos, modo }, token);
       const res = r.resultados || {};
       const partes = [];
       if (res.maestros) partes.push(`Vendedores: ${res.maestros.vendedores} | Clientes: ${res.maestros.clientes}`);
@@ -46,10 +57,14 @@ export default function ConfigSyncScreen() {
       if (res.bancos) partes.push(`Bancos: ${res.bancos.bancos}`);
       if (res.documentos) partes.push(`Documentos: ${res.documentos.documentos}`);
       if (res.incidencias) partes.push(`Incidencias nuevas: ${res.incidencias.incidencias} | Actualizadas: ${res.incidencias.actualizadas}`);
+      if (res.usuarios) partes.push(`Usuarios: ${res.usuarios.usuarios} (nuevos: ${res.usuarios.creados}, actualizados: ${res.usuarios.actualizados}, desactivados: ${res.usuarios.desactivados})`);
+      if (res.articulos) partes.push(`Articulos: ${res.articulos.articulos}`);
       setResultado(partes.join(' | '));
       cargarLog();
+      cargarEstado();
     } catch (err) {
       setResultado(`Error: ${err.message}`);
+      console.error('Sync error:', err);
     } finally {
       setEjecutando(false);
     }
@@ -62,8 +77,28 @@ export default function ConfigSyncScreen() {
 
       <div className="card" style={{ marginBottom: 14 }}>
         <p className="mutado" style={{ marginTop: 0 }}>
-          Selecciona qué procesos sincronizar desde el ERP y pulsa el botón.
+          Selecciona qué procesos sincronizar desde el ERP y el modo de sincronización.
         </p>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Modo de sincronización</div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input type="radio" name="modo" value="parcial" checked={modo === 'parcial'} onChange={() => setModo('parcial')} />
+              <span style={{ fontSize: 14 }}>Parcial (Solo Remplaza)</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input type="radio" name="modo" value="completo" checked={modo === 'completo'} onChange={() => setModo('completo')} />
+              <span style={{ fontSize: 14 }}>Completo (Elimina y Adiciona)</span>
+            </label>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--texto-suave)', marginTop: 4 }}>
+            {modo === 'parcial'
+              ? 'Actualiza registros existentes. No elimina registros que ya no estén en el ERP.'
+              : 'Limpia completamente las tablas y las rellena con datos del ERP. BD = ERP exactamente.'}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
           {PROCESOS.map((p) => (
             <label key={p.clave} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -81,6 +116,29 @@ export default function ConfigSyncScreen() {
           </div>
         )}
       </div>
+
+      {/* Estado de ultima sincronizacion por proceso */}
+      {estado.length > 0 && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)', marginBottom: 8 }}>Ultima sincronizacion por proceso</div>
+          <table className="tabla">
+            <thead>
+              <tr><th>Proceso</th><th>Estado</th><th>Fecha</th><th>Filas</th><th>Detalle</th></tr>
+            </thead>
+            <tbody>
+              {estado.map((e) => (
+                <tr key={e.proceso}>
+                  <td style={{ fontWeight: 600 }}>{e.proceso}</td>
+                  <td><span className="badge" style={{ backgroundColor: e.resultado === 'OK' ? 'var(--verde)' : 'var(--rojo)' }}>{e.resultado}</span></td>
+                  <td className="mono">{e.fecha}</td>
+                  <td className="mono">{e.filas}</td>
+                  <td className="mutado">{e.detalle || ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Historial de sincronizaciones</div>

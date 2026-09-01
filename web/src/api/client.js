@@ -30,7 +30,7 @@ export async function apiPost(ruta, body, token) {
     body: JSON.stringify(body)
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Error de conexion');
+  if (!res.ok) throw new Error(data.detalle ? `${data.error}: ${data.detalle}` : data.error || 'Error de conexion');
   return data;
 }
 

@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
 import Exportar from '../components/Exportar';
 import { PlusIcon } from '../components/Iconos';
+
+const POR_PAGINA_INC = 15;
 
 function estadoColor(inc_estc) {
   if (inc_estc === 1) return '#e67e22';
@@ -26,6 +28,8 @@ export default function IncidenciasClienteScreen() {
   const [frecuencia, setFrecuencia] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [mostrarHistorial, setMostrarHistorial] = useState(false);
+  const [paginaInc, setPaginaInc] = useState(1);
 
   const cargar = useCallback(async () => {
     try {
@@ -45,9 +49,24 @@ export default function IncidenciasClienteScreen() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  useEffect(() => { setPaginaInc(1); }, [mostrarHistorial]);
+
   const resumen = frecuencia.find((f) => String(f.ter_cote) === String(codigo)) || {};
   const ultima = incidencias[0];
   const nombre = ultima?.cliente_nombre || resumen.cliente_nombre || codigo;
+
+  const incidenciasVisibles = useMemo(() => {
+    if (mostrarHistorial) {
+      const ini = (paginaInc - 1) * POR_PAGINA_INC;
+      return incidencias.slice(ini, ini + POR_PAGINA_INC);
+    }
+    return incidencias.slice(0, POR_PAGINA_INC);
+  }, [incidencias, mostrarHistorial, paginaInc]);
+
+  const totalPaginasInc = useMemo(
+    () => Math.max(1, Math.ceil(incidencias.length / POR_PAGINA_INC)),
+    [incidencias]
+  );
 
   return (
     <div>
@@ -86,7 +105,20 @@ export default function IncidenciasClienteScreen() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>Historial</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--primario)' }}>
+            {mostrarHistorial ? 'Historial completo' : `Últimas ${Math.min(POR_PAGINA_INC, incidencias.length)} incidencias`}
+          </div>
+          {incidencias.length > POR_PAGINA_INC && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 12, padding: '4px 10px', border: '1px solid var(--borde)', color: mostrarHistorial ? 'var(--rojo)' : 'var(--primario)' }}
+              onClick={() => setMostrarHistorial(!mostrarHistorial)}
+            >
+              {mostrarHistorial ? '← Ver menos' : `Ver historial (${incidencias.length}) →`}
+            </button>
+          )}
+        </div>
         {incidencias.length > 0 && (
           <Exportar
             nombreArchivo={`incidencias_${codigo}`}
@@ -100,23 +132,42 @@ export default function IncidenciasClienteScreen() {
       ) : error ? (
         <div className="vacio" style={{ color: 'var(--rojo)' }}>{error}</div>
       ) : (
-        <table className="tabla">
-          <thead>
-            <tr><th>#</th><th>Vendedor</th><th>Descripción</th><th>Acción</th><th>Fecha</th><th>Estado</th></tr>
-          </thead>
-          <tbody>
-            {incidencias.map((it) => (
-              <tr key={it.inc_codi}>
-                <td className="mono">#{it.inc_codi}</td>
-                <td>{it.vendedor_nombre || '-'}</td>
-                <td style={{ maxWidth: 360 }}>{it.inc_desc}</td>
-                <td style={{ maxWidth: 240 }}>{it.inc_acci || '-'}</td>
-                <td className="mono">{it.fe_regi}</td>
-                <td><span className="badge" style={{ backgroundColor: estadoColor(it.inc_estc) }}>{estadoTexto(it.inc_estc)}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          <table className="tabla">
+            <thead>
+              <tr><th>#</th><th>Vendedor</th><th>Descripción</th><th>Acción</th><th>Fecha</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+              {incidenciasVisibles.map((it) => (
+                <tr key={it.inc_codi}>
+                  <td className="mono">#{it.inc_codi}</td>
+                  <td>{it.vendedor_nombre || '-'}</td>
+                  <td style={{ maxWidth: 360 }}>{it.inc_desc}</td>
+                  <td style={{ maxWidth: 240 }}>{it.inc_acci || '-'}</td>
+                  <td className="mono">{it.fe_regi}</td>
+                  <td><span className="badge" style={{ backgroundColor: estadoColor(it.inc_estc) }}>{estadoTexto(it.inc_estc)}</span></td>
+                </tr>
+              ))}
+              {incidenciasVisibles.length === 0 && (
+                <tr><td colSpan={6} className="vacio">Sin incidencias</td></tr>
+              )}
+            </tbody>
+          </table>
+
+          {mostrarHistorial && totalPaginasInc > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 14 }}>
+              <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} disabled={paginaInc <= 1} onClick={() => setPaginaInc(paginaInc - 1)}>
+                ← Anterior
+              </button>
+              <span className="mutado">
+                Página {paginaInc} de {totalPaginasInc} · mostrando {incidenciasVisibles.length} de {incidencias.length}
+              </span>
+              <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} disabled={paginaInc >= totalPaginasInc} onClick={() => setPaginaInc(paginaInc + 1)}>
+                Siguiente →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

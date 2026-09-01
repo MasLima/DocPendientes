@@ -107,6 +107,26 @@ CREATE TABLE incidencia_detalle (
   PRIMARY KEY (inc_codi, inc_nro)
 ) ENGINE=InnoDB;
 
+-- ============================================================
+-- PERMISOS Y ROLES (acceso por perfil)
+-- ============================================================
+
+-- Catalogo de permisos disponibles
+DROP TABLE IF EXISTS permisos;
+CREATE TABLE permisos (
+  codigo       VARCHAR(30)  NOT NULL PRIMARY KEY COMMENT 'Codigo del permiso (ej: clientes.ver)',
+  descripcion  VARCHAR(100) NULL COMMENT 'Descripcion del permiso',
+  modulo       VARCHAR(20)  NULL COMMENT 'Modulo al que pertenece'
+) ENGINE=InnoDB;
+
+-- Relacion rol <-> permiso
+DROP TABLE IF EXISTS roles_permisos;
+CREATE TABLE roles_permisos (
+  rol      VARCHAR(20) NOT NULL COMMENT 'Nombre del rol',
+  permiso  VARCHAR(30) NOT NULL COMMENT 'Codigo del permiso',
+  PRIMARY KEY (rol, permiso)
+) ENGINE=InnoDB;
+
 -- Bitacora de sincronizacion
 DROP TABLE IF EXISTS sync_log;
 CREATE TABLE sync_log (

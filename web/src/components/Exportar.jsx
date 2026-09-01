@@ -3,11 +3,6 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ExcelIcon, PdfIcon } from './Iconos';
 
-// Botones de exportación a Excel (.xlsx) y PDF.
-// columnas: array de nombres de columna.
-// filas: array de arrays con los valores.
-// titulo: string opcional que se muestra como encabezado del PDF/Excel.
-// info: array de [etiqueta, valor] con datos del cliente para el encabezado.
 function aTexto(valor) {
   if (valor === null || valor === undefined) return '';
   return String(valor);
@@ -29,9 +24,10 @@ function exportarExcel(nombreArchivo, columnas, filas, titulo, info) {
   XLSX.writeFile(libro, `${nombreArchivo}.xlsx`);
 }
 
-function exportarPDF(nombreArchivo, columnas, filas, titulo, info) {
+function exportarPDF(nombreArchivo, columnas, filas, titulo, info, imagenUrl) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
   let y = 40;
+
   if (titulo) {
     doc.setFontSize(14);
     doc.setTextColor(26, 43, 76);
@@ -49,17 +45,50 @@ function exportarPDF(nombreArchivo, columnas, filas, titulo, info) {
     });
     y += 8;
   }
-  autoTable(doc, {
-    startY: y,
-    head: [columnas.map((c) => aTexto(c))],
-    body: filas.map((f) => f.map((v) => aTexto(v))),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [26, 43, 76] }
-  });
-  doc.save(`${nombreArchivo}.pdf`);
+
+  const dibujarTabla = (doc, y) => {
+    autoTable(doc, {
+      startY: y,
+      head: [columnas.map((c) => aTexto(c))],
+      body: filas.map((f) => f.map((v) => aTexto(v))),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [26, 43, 76] }
+    });
+    return doc;
+  };
+
+  if (imagenUrl) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        const maxW = 200;
+        const ratio = img.naturalHeight / img.naturalWidth;
+        const w = Math.min(maxW, img.naturalWidth);
+        const h = w * ratio;
+        doc.addImage(dataUrl, 'JPEG', 40, y, w, h);
+        y += h + 12;
+      } catch { /* no importa si falla */ }
+      dibujarTabla(doc, y);
+      doc.save(`${nombreArchivo}.pdf`);
+    };
+    img.onerror = () => {
+      dibujarTabla(doc, y);
+      doc.save(`${nombreArchivo}.pdf`);
+    };
+    img.src = imagenUrl;
+  } else {
+    dibujarTabla(doc, y);
+    doc.save(`${nombreArchivo}.pdf`);
+  }
 }
 
-export default function Exportar({ nombreArchivo, columnas, filas, titulo, info }) {
+export default function Exportar({ nombreArchivo, columnas, filas, titulo, info, imagenUrl }) {
   return (
     <div style={{ display: 'flex', gap: 8 }}>
       <button
@@ -72,7 +101,7 @@ export default function Exportar({ nombreArchivo, columnas, filas, titulo, info 
       <button
         className="btn"
         style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#c0392b' }}
-        onClick={() => exportarPDF(nombreArchivo, columnas, filas, titulo, info)}
+        onClick={() => exportarPDF(nombreArchivo, columnas, filas, titulo, info, imagenUrl)}
       >
         <PdfIcon size={18} /> PDF
       </button>

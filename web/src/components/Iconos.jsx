@@ -74,6 +74,17 @@ export function SettingsIcon({ size = 20 }) {
   );
 }
 
+export function BoxIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M408 112H104a56.16 56.16 0 0 0-56 56v192a56.16 56.16 0 0 0 56 56h304a56.16 56.16 0 0 0 56-56V168a56.16 56.16 0 0 0-56-56z" />
+      <path d="M392 112V80a24 24 0 0 0-24-24H144a24 24 0 0 0-24 24v32" />
+      <path d="M256 112v96" />
+      <rect x="112" y="272" width="288" height="96" rx="8" />
+    </svg>
+  );
+}
+
 export function DocumentIcon({ size = 20 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
@@ -198,6 +209,8 @@ export function iconoDeMenu(ruta) {
       return <GridIcon />;
     case '/clientes':
       return <PeopleIcon />;
+    case '/articulos':
+      return <BoxIcon />;
     case '/reportes':
       return <BarChartIcon />;
     case '/incidencias':

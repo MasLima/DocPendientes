@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "movil",
-    "slug": "movil",
+    "slug": "cobranza",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -10,18 +10,27 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.docpendientes.cobranza",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": ["INTERNET"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@react-native-community/datetimepicker"
-    ]
+      "@react-native-community/datetimepicker",
+      "./plugins/withCleartextTraffic"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0c8706b9-ebf2-4c70-a185-0afb800c4d9b"
+      }
+    },
+    "owner": "mas-exp"
   }
 }

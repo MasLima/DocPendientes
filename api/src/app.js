@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const auth = require('./middleware/auth');
 const pool = require('./config/db');
 
@@ -7,6 +8,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Archivos estaticos del frontend (web/dist)
+app.use(express.static(path.join(__dirname, '../../web/dist')));
 
 // Rutas publicas
 app.use('/api/auth', require('./routes/auth'));
@@ -20,6 +24,7 @@ app.use('/api/usuarios', auth, require('./routes/usuarios'));
 app.use('/api/perfiles', auth, require('./routes/perfiles'));
 app.use('/api/sync', auth, require('./routes/sync'));
 app.use('/api/dashboard', auth, require('./routes/dashboard'));
+app.use('/api/articulos', auth, require('./routes/articulos'));
 
 app.get('/api/health', async (req, res) => {
   try {
@@ -28,6 +33,11 @@ app.get('/api/health', async (req, res) => {
   } catch (err) {
     res.status(500).json({ status: 'error', db: err.message });
   }
+});
+
+// Fallback: servir index.html para rutas del frontend (React Router)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../web/dist/index.html'));
 });
 
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
