@@ -13,7 +13,7 @@ const IMG_BASE = 'https://coloma.integrator.pe/data/db0010_01/images/';
 const PRECIOS_CONFIG = {
   '101': { label: '02 PIEZAS 10', moneda: 'S/' },
   '102': { label: '03 SELLADO', moneda: 'S/' },
-  '103': { label: '04 DOLARES', moneda: 'US$' }
+  '106': { label: '04 DOLARES', moneda: 'US$' }
 };
 
 function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNombre, campoTelefono, color }) {
@@ -139,6 +139,7 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
   };
   const uStock = fmt(art.ustock_desc, art.ustock_abrev);
   const fmtNum = (v) => Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtNum3 = (v) => Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   const fmtFecha = (f) => {
     if (!f) return '-';
     try { return new Date(f).toLocaleDateString('es-PE'); } catch { return f; }
@@ -157,7 +158,7 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
     if (art.saldo != null) l.push(`Saldo: ${fmtNum(art.saldo)} ${art.ustock_abrev || ''}`);
     Object.entries(PRECIOS_CONFIG).forEach(([code, cfg]) => {
       const p = preciosMap[code];
-      if (p) l.push(`${cfg.label} (${cfg.moneda}): ${cfg.moneda} ${fmtNum(p.ven_pigv)}`);
+      if (p) l.push(`${cfg.label} (${cfg.moneda}): ${cfg.moneda} ${fmtNum3(p.ven_pigv)}`);
     });
     return l.join('\n');
   };
@@ -387,7 +388,7 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
                   return (
                     <View key={code} style={[styles.precioRow, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}>
                       <Text style={[styles.precioLabel, { color: tema.texto }]}>{cfg.label} ({cfg.moneda})</Text>
-                      <Text style={[styles.precioMonto, { color: '#27ae60' }]}>{cfg.moneda} {p ? fmtNum(p.ven_pigv) : '-'}</Text>
+                      <Text style={[styles.precioMonto, { color: '#27ae60' }]}>{cfg.moneda} {p ? fmtNum3(p.ven_pigv) : '-'}</Text>
                     </View>
                   );
                 })

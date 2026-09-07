@@ -142,7 +142,7 @@ async function _syncArticulosBase(modo) {
     `SELECT i.ite_item, i.ite_dsit, i.ite_dste, i.ite_uven,
             i.ite_ucom, i.ite_usto, i.ite_imag, i.ite_coar, i.ite_coli,
             i.ite_cofa, i.ite_esta, i.ite_pruv, i.ite_feuv, i.ite_copr, i.ite_codl,
-            i.ite_stog
+            i.ite_stog, i.ite_coin
      FROM mplite001 i
      WHERE i.ite_esta NOT IN (
        SELECT e.ite_esta FROM mplite011 e
@@ -182,24 +182,24 @@ async function _syncArticulosBase(modo) {
   if (modo === 'completo') await app.query('DELETE FROM articulos');
 
   const sqlCon = `REPLACE INTO articulos
-    (ite_item, ite_dsit, ite_dste, ite_uven, ite_ucom,
+    (ite_item, ite_codi, ite_dsit, ite_dste, ite_uven, ite_ucom,
      ite_usto, ite_imag, ite_coar, ite_coli, ite_cofa, ite_esta,
      ite_pruv, ite_feuv, ite_copr, ite_codl,
      saldo, linea_desc, familia_desc, unidad_desc, estado_desc,
      fecha_compra, importe_compra, ultima_sync,
      uventa_desc, ucompra_desc, ustock_desc,
      uventa_abrev, ucompra_abrev, ustock_abrev)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)`;
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)`;
 
   const sqlSin = `REPLACE INTO articulos
-    (ite_item, ite_dsit, ite_dste, ite_uven, ite_ucom,
+    (ite_item, ite_codi, ite_dsit, ite_dste, ite_uven, ite_ucom,
      ite_usto, ite_imag, ite_coar, ite_coli, ite_cofa, ite_esta,
      ite_pruv, ite_feuv, ite_copr, ite_codl,
      saldo, linea_desc, familia_desc, unidad_desc, estado_desc,
      fecha_compra, importe_compra, ultima_sync)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, NOW())`;
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, NOW())`;
 
   let insertados = 0, errores = 0, primerError = null;
   for (const item of items) {
@@ -211,7 +211,7 @@ async function _syncArticulosBase(modo) {
       const uc = unidadesMap.get(item.ite_ucom) || {};
       const us = unidadesMap.get(item.ite_usto) || {};
       const base = [
-        item.ite_item, limpiarUnicode(item.ite_dsit), dste,
+        item.ite_item, item.ite_coin || null, limpiarUnicode(item.ite_dsit), dste,
         item.ite_uven, item.ite_ucom, item.ite_usto,
         item.ite_imag, item.ite_coar, item.ite_coli, item.ite_cofa, item.ite_esta,
         item.ite_pruv, item.ite_feuv, item.ite_copr, item.ite_codl,
@@ -247,6 +247,50 @@ async function syncArticulosParcial() {
 
 async function syncArticulosCompleto() {
   return _syncArticulosBase('completo');
+}
+
+// ==================== PRECIOS ====================
+
+async function syncPrecios() {
+  try {
+    const [articulosExistentes] = await app.query('SELECT ite_item FROM articulos');
+    const itemsLocales = articulosExistentes.map(a => a.ite_item);
+    if (itemsLocales.length === 0) {
+      console.log('[syncPrecios] No hay artículos sincronizados, saltando');
+      await logSync('PRECIOS', 0, 'OK', 'sin articulos locales');
+      return { precios: 0 };
+    }
+
+    const placeholders = itemsLocales.map(() => '?').join(',');
+    const [precios] = await erp.query(
+      `SELECT ven_item, ven_cota, ven_pigv
+       FROM mplven010
+       WHERE ven_item IN (${placeholders}) AND ven_cota IN ('101', '102', '106')`,
+      itemsLocales
+    );
+    console.log(`[syncPrecios] precios del ERP: ${precios.length} (de ${itemsLocales.length} artículos locales)`);
+    await app.query('DELETE FROM articulos_precios');
+    let insertados = 0;
+    for (const p of precios) {
+      try {
+        await app.query(
+          `INSERT INTO articulos_precios (ven_item, ven_cota, ven_pric, ven_pigv)
+           VALUES (?, ?, ?, ?)`,
+          [p.ven_item, p.ven_cota, 0, Number(Number(p.ven_pigv).toFixed(4))]
+        );
+        insertados++;
+      } catch (e) {
+        console.error(`[syncPrecios] ${p.ven_item}-${p.ven_cota}:`, e.message);
+      }
+    }
+    console.log(`[syncPrecios] insertados: ${insertados}`);
+    await logSync('PRECIOS', insertados, 'OK', `precios=${insertados}`);
+    return { precios: insertados };
+  } catch (err) {
+    console.error('[syncPrecios] Error:', err.message);
+    await logSync('PRECIOS', 0, 'ERROR', err.message);
+    return { precios: 0, error: err.message };
+  }
 }
 
 // ==================== MAESTROS COMPLETO ====================
@@ -522,7 +566,8 @@ const FUNCIONES_PARCIAL = {
   condiciones: syncCondicionesPagoParcial,
   tipos: syncTiposDocumentoParcial,
   bancos: syncBancosParcial,
-  articulos: syncArticulosParcial
+  articulos: syncArticulosParcial,
+  precios: syncPrecios
 };
 
 const FUNCIONES_COMPLETO = {
@@ -530,7 +575,8 @@ const FUNCIONES_COMPLETO = {
   condiciones: syncCondicionesPagoCompleto,
   tipos: syncTiposDocumentoCompleto,
   bancos: syncBancosCompleto,
-  articulos: syncArticulosCompleto
+  articulos: syncArticulosCompleto,
+  precios: syncPrecios
 };
 
 // Sincronizacion principal.
@@ -539,7 +585,7 @@ const FUNCIONES_COMPLETO = {
 //   El modo completo solo aplica a tablas catalogo (maestros, condiciones, tipos, bancos, articulos).
 //   Documentos siempre es completo, incidencias/usuarios siempre son incrementales.
 async function syncCompleto(procesos = null, modo = 'parcial') {
-  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos'];
+  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'precios'];
   const seleccion = procesos && procesos.length ? procesos : validos;
   const resultados = {};
 
@@ -566,6 +612,7 @@ module.exports = {
   syncTiposDocumento: syncTiposDocumentoParcial,
   syncBancos: syncBancosParcial,
   syncArticulos: syncArticulosParcial,
+  syncPrecios,
   syncDocumentos,
   syncIncidencias,
   syncUsuarios,

@@ -13,7 +13,7 @@ const IMG_BASE = 'https://coloma.integrator.pe/data/db0010_01/images/';
 const PRECIOS_CONFIG = {
   '101': { label: '02 PIEZAS 10', moneda: 'S/' },
   '102': { label: '03 SELLADO', moneda: 'S/' },
-  '103': { label: '04 DOLARES', moneda: 'US$' }
+  '106': { label: '04 DOLARES', moneda: 'US$' }
 };
 
 function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNombre, campoTelefono, color, requerirTelefono = false, maxItems = 50 }) {

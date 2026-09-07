@@ -2,10 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
-import { CloseIcon } from '../components/Iconos';
+import { CloseIcon, ChatbubbleIcon, WhatsAppIcon } from '../components/Iconos';
 import Exportar from '../components/Exportar';
+import WhatsAppModal from '../components/WhatsAppModal';
 
 const IMG_BASE = 'https://coloma.integrator.pe/data/db0010_01/images/';
+const PRECIOS_CONFIG = {
+  '101': { label: '02 PIEZAS 10', moneda: 'S/' },
+  '102': { label: '03 SELLADO', moneda: 'S/' },
+  '106': { label: '04 DOLARES', moneda: 'US$' }
+};
 
 export default function ArticuloDetalleScreen() {
   const { codigo } = useParams();
@@ -15,6 +21,7 @@ export default function ArticuloDetalleScreen() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [pestana, setPestana] = useState('imagen');
+  const [waModal, setWaModal] = useState(false);
 
   const cargar = useCallback(async () => {
     try {
@@ -52,17 +59,18 @@ export default function ArticuloDetalleScreen() {
     if (abrev) return abrev;
     return '-';
   };
-  const uVenta = fmt(articulo.uventa_desc, articulo.uventa_abrev);
-  const uCompra = fmt(articulo.ucompra_desc, articulo.ucompra_abrev);
   const uStock = fmt(articulo.ustock_desc, articulo.ustock_abrev);
+
+  const preciosMap = {};
+  if (articulo.precios) {
+    articulo.precios.forEach(p => { preciosMap[p.ven_cota] = p; });
+  }
 
   const colPdf = ['Campo', 'Valor'];
   const filasPdf = [
     ['Codigo', articulo.ite_item],
     ['Descripcion', articulo.ite_dsit || '-'],
     ['Descripcion larga', articulo.ite_dste || '-'],
-    ['Unidad de venta', uVenta],
-    ['Unidad de compra', uCompra],
     ['Unidad de stock', uStock],
     ['Linea', articulo.linea_desc || '-'],
     ['Familia', articulo.familia_desc || '-'],
@@ -75,6 +83,10 @@ export default function ArticuloDetalleScreen() {
     ['Fecha ultima compra', formatearFecha(articulo.fecha_compra)],
     ['Importe ultima compra', `S/. ${formatearNumero(articulo.importe_compra)}`]
   ];
+  Object.entries(PRECIOS_CONFIG).forEach(([code, cfg]) => {
+    const p = preciosMap[code];
+    if (p) filasPdf.push([cfg.label, `${cfg.moneda} ${formatearNumero(p.ven_pigv, 3)}`]);
+  });
 
   const tabBtn = (key, label) => (
     <button
@@ -89,11 +101,13 @@ export default function ArticuloDetalleScreen() {
     </button>
   );
 
+  const btnStyle = { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, borderRadius: 6, border: 'none', cursor: 'pointer', fontWeight: 600 };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ margin: 0 }}>Detalle del Articulo</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Exportar
             nombreArchivo={`articulo_${articulo.ite_item}`}
             columnas={colPdf}
@@ -102,29 +116,16 @@ export default function ArticuloDetalleScreen() {
             info={[['Descripcion', articulo.ite_dsit || '-']]}
             imagenUrl={imagenUrl}
           />
-          <button className="btn-cancelar" onClick={() => navigate('/articulos')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button style={{ ...btnStyle, background: '#25D366', color: '#fff' }} onClick={() => setWaModal(true)}>
+            <WhatsAppIcon size={18} /> WhatsApp
+          </button>
+          <button style={{ ...btnStyle, background: '#fde9ec', color: '#c0392b', border: '1px solid #f5c6cb' }} onClick={() => navigate('/articulos')}>
             <CloseIcon size={18} /> Cerrar
           </button>
         </div>
       </div>
 
-      {/* Encabezado fijo */}
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginBottom: 16, padding: 14, background: 'var(--tarjeta)', borderRadius: 8, border: '1px solid var(--borde)' }}>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontSize: 13, color: 'var(--texto-suave)' }}>Codigo</div>
-          <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{articulo.ite_item}</div>
-        </div>
-        <div style={{ flex: 2, minWidth: 250 }}>
-          <div style={{ fontSize: 13, color: 'var(--texto-suave)' }}>Descripcion</div>
-          <div style={{ fontSize: 15 }}>{articulo.ite_dsit}</div>
-        </div>
-        <div style={{ minWidth: 140 }}>
-          <div style={{ fontSize: 13, color: 'var(--texto-suave)' }}>Saldo</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: articulo.saldo > 0 ? 'var(--primario)' : '#c0392b' }}>
-            {formatearNumero(articulo.saldo)} <span style={{ fontSize: 14, fontWeight: 400, color: 'var(--texto-suave)' }}>{articulo.ustock_abrev || ''}</span>
-          </div>
-        </div>
-      </div>
+      <WhatsAppModal abierto={waModal} onClose={() => setWaModal(false)} token={token} articulo={articulo} />
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--borde)', marginBottom: 16 }}>
@@ -135,6 +136,7 @@ export default function ArticuloDetalleScreen() {
       {/* Tab Imagen */}
       {pestana === 'imagen' && (
         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          {/* Imagen a la izquierda */}
           <div style={{ flex: '0 0 350px' }}>
             {imagenUrl ? (
               <div>
@@ -155,24 +157,48 @@ export default function ArticuloDetalleScreen() {
             )}
           </div>
 
-          <div style={{ flex: 1, minWidth: 280 }}>
-            {articulo.ite_dste && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 13, color: 'var(--texto-suave)' }}>Descripcion larga</div>
-                <div style={{ fontSize: 14 }}>{articulo.ite_dste}</div>
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <CampoDetalle label="Unidad de stock" valor={uStock} />
-              <CampoDetalle label="Estado" valor={articulo.estado_desc || '-'} />
-              <CampoDetalle label="Linea" valor={articulo.linea_desc || '-'} />
-              <CampoDetalle label="Familia" valor={articulo.familia_desc || '-'} />
+          {/* Datos a la derecha */}
+          <div style={{ flex: 1, minWidth: 280, background: 'var(--grid-header)', borderRadius: 8, padding: 14, border: '1px solid var(--borde)' }}>
+            {/* Código + Nombre */}
+            <div style={{ marginBottom: 12 }}>
+              <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace' }}>{articulo.ite_item}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, marginLeft: 12 }}>{articulo.ite_dsit || '-'}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-              <CampoDetalle label="Ultima compra" valor={`${formatearFecha(articulo.fecha_compra)}`} />
-              <CampoDetalle label="Importe compra" valor={`S/. ${formatearNumero(articulo.importe_compra)}`} />
-              <CampoDetalle label="Ultima venta" valor={`${formatearFecha(articulo.ite_feuv)}`} />
-              <CampoDetalle label="Precio venta" valor={`S/. ${formatearNumero(articulo.ite_pruv)}`} />
+
+            {/* Dos columnas */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {/* Columna 1 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <FilaDetalle label="Código Alterno" valor={articulo.ite_codi || '-'} />
+                <FilaDetalle label="Línea" valor={articulo.linea_desc || '-'} />
+                <FilaDetalle label="Familia" valor={articulo.familia_desc || '-'} />
+                <FilaDetalle label="Fecha Últ. Compra" valor={formatearFecha(articulo.fecha_compra)} />
+                <FilaDetalle label="Fecha Últ. Venta" valor={formatearFecha(articulo.ite_feuv)} />
+              </div>
+
+              {/* Columna 2 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <FilaDetalle label="U. Medida Stock" valor={uStock} />
+                <FilaDetalle label="Stock Disponible" valor={`${formatearNumero(articulo.saldo)} ${articulo.ustock_abrev || ''}`} />
+
+                {/* Lista de Precios */}
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ fontSize: 12, color: 'var(--texto-suave)', marginBottom: 4 }}>Lista de Precios</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {Object.entries(PRECIOS_CONFIG).map(([code, cfg]) => {
+                      const p = preciosMap[code];
+                      return (
+                        <div key={code} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--fondo)', borderRadius: 4, border: '1px solid var(--borde)' }}>
+                          <span style={{ fontSize: 12, fontWeight: 600 }}>{cfg.label} ({cfg.moneda})</span>
+                          <span style={{ fontSize: 13, fontWeight: 700 }}>
+                            {cfg.moneda} {p ? formatearNumero(p.ven_pigv, 3) : '-'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -182,25 +208,18 @@ export default function ArticuloDetalleScreen() {
       {pestana === 'datos' && (
         <div>
           <h3 style={{ marginBottom: 12 }}>Informacion adicional</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-            <CampoDetalle label="Estado" valor={articulo.estado_desc || '-'} />
-            <CampoDetalle label="Linea" valor={articulo.linea_desc || '-'} />
-            <CampoDetalle label="Familia" valor={articulo.familia_desc || '-'} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-            <CampoDetalle label="Unidad de compra" valor={uCompra} />
-            <CampoDetalle label="Fecha ultima compra" valor={formatearFecha(articulo.fecha_compra)} />
-            <CampoDetalle label="Importe ultima compra" valor={`S/. ${formatearNumero(articulo.importe_compra)}`} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-            <CampoDetalle label="Unidad de venta" valor={uVenta} />
-            <CampoDetalle label="Fecha ultima venta" valor={formatearFecha(articulo.ite_feuv)} />
-            <CampoDetalle label="Precio ultima venta" valor={`S/. ${formatearNumero(articulo.ite_pruv)}`} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-            <CampoDetalle label="Costo soles" valor={`S/. ${formatearNumero(articulo.ite_copr)}`} />
-            <CampoDetalle label="Costo dolares" valor={`US$ ${formatearNumero(articulo.ite_codl)}`} />
-            <CampoDetalle label="Ultima sincronizacion" valor={formatearFecha(articulo.ultima_sync)} />
+          <FilaDetalle label="Descripcion larga" valor={articulo.ite_dste || '-'} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 8 }}>
+            <FilaDetalle label="Estado" valor={articulo.estado_desc || '-'} />
+            <FilaDetalle label="Linea" valor={articulo.linea_desc || '-'} />
+            <FilaDetalle label="Familia" valor={articulo.familia_desc || '-'} />
+            <FilaDetalle label="Unidad stock" valor={uStock} />
+            <FilaDetalle label="Fecha ultima compra" valor={formatearFecha(articulo.fecha_compra)} />
+            <FilaDetalle label="Importe ultima compra" valor={`S/. ${formatearNumero(articulo.importe_compra)}`} />
+            <FilaDetalle label="Fecha ultima venta" valor={formatearFecha(articulo.ite_feuv)} />
+            <FilaDetalle label="Costo soles" valor={`S/. ${formatearNumero(articulo.ite_copr)}`} />
+            <FilaDetalle label="Costo dolares" valor={`US$ ${formatearNumero(articulo.ite_codl)}`} />
+            <FilaDetalle label="Ultima sincronizacion" valor={formatearFecha(articulo.ultima_sync)} />
           </div>
         </div>
       )}
@@ -213,6 +232,15 @@ function CampoDetalle({ label, valor }) {
     <div style={{ padding: '8px 12px', background: 'var(--fondo)', borderRadius: 6 }}>
       <div style={{ fontSize: 12, color: 'var(--texto-suave)', marginBottom: 2 }}>{label}</div>
       <div style={{ fontSize: 14, fontWeight: 600 }}>{valor || '-'}</div>
+    </div>
+  );
+}
+
+function FilaDetalle({ label, valor }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--fondo)', borderRadius: 4, border: '1px solid var(--borde)' }}>
+      <span style={{ fontSize: 12, color: 'var(--texto-suave)', textAlign: 'left' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, textAlign: 'left' }}>{valor || '-'}</span>
     </div>
   );
 }

@@ -10,7 +10,12 @@
   --verde: #27ae60;
   --naranja: #e67e22;
   --azul: #2980b9;
+  --celeste: #85c1e9;
+  --warning: #f5b041;
   --zebra: #f7f8fb;
+  --cliente-label: #ebf5eb;
+  --grid-header: #e8f5e9;
+  --active: #d5e8d4;
 }
 
 body.dark {
@@ -22,6 +27,9 @@ body.dark {
   --primario: #1a2b4c;
   --primario-texto: #ffffff;
   --zebra: #232f42;
+  --cliente-label: #2a3a4a;
+  --grid-header: #2a3a4a;
+  --active: #2a3a4a;
 }
 
 * { box-sizing: border-box; }
@@ -104,7 +112,7 @@ table.tabla th, table.tabla td {
   border-bottom: 1px solid var(--borde);
   font-size: 13px;
 }
-table.tabla th { background: var(--primario); color: #fff; font-size: 12px; text-transform: uppercase; }
+table.tabla th { background: var(--grid-header); color: var(--texto); font-size: 12px; text-transform: uppercase; font-weight: 700; }
 table.tabla tbody tr:nth-child(even) { background: var(--zebra); }
 table.tabla tbody tr:hover { background: rgba(26, 43, 76, 0.08); }
 table.tabla tbody tr:last-child td { border-bottom: none; }
