@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput,
   Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal
@@ -36,7 +36,7 @@ function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNom
 
       <Modal visible={abierto} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: '#fff' }]}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{titulo}</Text>
               <TouchableOpacity onPress={() => { setAbierto(false); setBusqueda(''); }}>
@@ -56,7 +56,7 @@ function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNom
             <FlatList
               data={filtrados}
               keyExtractor={(item) => String(item[campoId])}
-              style={{ maxHeight: 350 }}
+              style={{ maxHeight: 300 }}
               renderItem={({ item }) => {
                 const sel = seleccionadosIds.includes(item[campoId]);
                 return (
@@ -86,7 +86,7 @@ function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNom
 }
 
 export default function WhatsAppClienteScreen({ route, navigation }) {
-  const { ter_cote, ter_deno, articuloSel } = route.params || {};
+  const { ter_cote, ter_deno } = route.params || {};
   const { token } = useAuth();
   const { tema } = useTema();
 
@@ -94,13 +94,11 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
   const [vendedores, setVendedores] = useState([]);
   const [empleados, setEmpleados] = useState([]);
   const [contactosWA, setContactosWA] = useState([]);
-  const [articulos, setArticulos] = useState([]);
 
   const [clientesSel, setClientesSel] = useState([]);
   const [vendedoresSel, setVendedoresSel] = useState([]);
   const [empleadosSel, setEmpleadosSel] = useState([]);
   const [contactosWASel, setContactosWASel] = useState([]);
-  const [articulosSel, setArticulosSel] = useState(articuloSel ? [articuloSel] : []);
   const [mensaje, setMensaje] = useState('');
 
   const [enviando, setEnviando] = useState(false);
@@ -109,18 +107,16 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
 
   const cargar = useCallback(async () => {
     try {
-      const [cli, vend, emp, cont, art] = await Promise.all([
+      const [cli, vend, emp, cont] = await Promise.all([
         apiGet('/clientes', token),
         apiGet('/clientes/vendedores', token),
         apiGet('/whatsapp/empleados', token),
-        apiGet('/whatsapp/contactos', token),
-        apiGet('/articulos', token)
+        apiGet('/whatsapp/contactos', token)
       ]);
       setClientes(Array.isArray(cli) ? cli : []);
       setVendedores(Array.isArray(vend) ? vend : []);
       setEmpleados(Array.isArray(emp) ? emp : []);
       setContactosWA(Array.isArray(cont) ? cont : []);
-      setArticulos(Array.isArray(art) ? art : []);
 
       if (ter_cote) {
         const c = (Array.isArray(cli) ? cli : []).find(x => x.ter_cote === ter_cote);
@@ -148,11 +144,9 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
     ...contactosWASel.map(c => ({ ...c, ter_deno: c.nombre, _tipo: 'Contacto WA' }))
   ];
 
-  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
   const enviar = async () => {
     if (todosDestinos.length === 0) return Alert.alert('Info', 'Selecciona al menos un destino');
-    if (articulosSel.length === 0 && !mensaje.trim()) return Alert.alert('Info', 'Escribe un mensaje o selecciona artículos');
+    if (!mensaje.trim()) return Alert.alert('Info', 'Escribe un mensaje');
 
     setEnviando(true);
     setResultado(null);
@@ -163,15 +157,7 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
         const tel = d.ter_cell || d.ter_fono || d.telefono;
         if (!tel) { fallidos++; continue; }
         try {
-          if (articulosSel.length > 0) {
-            for (let i = 0; i < articulosSel.length; i++) {
-              const a = articulosSel[i];
-              if (i > 0) await delay(2000);
-              await apiPost('/whatsapp/enviar-articulo', { telefono: tel, articulo: a, cliente: d, mensaje }, token);
-            }
-          } else {
-            await apiPost('/whatsapp/enviar-texto', { telefono: tel, mensaje: mensaje.trim() }, token);
-          }
+          await apiPost('/whatsapp/enviar-texto', { telefono: tel, mensaje: mensaje.trim() }, token);
           enviados++;
         } catch { fallidos++; }
       }
@@ -186,7 +172,6 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
         setVendedoresSel([]);
         setEmpleadosSel([]);
         setContactosWASel([]);
-        setArticulosSel([]);
         setMensaje('');
       }
     } catch (err) {
@@ -194,17 +179,6 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
     } finally {
       setEnviando(false);
     }
-  };
-
-  const generarMensajeArticulo = (art) => {
-    const l = [];
-    l.push(`🏷 *${art.ite_dsit || art.ite_item}*`);
-    l.push(`Código: ${art.ite_item}`);
-    if (art.linea_desc) l.push(`Línea: ${art.linea_desc}`);
-    if (art.familia_desc) l.push(`Familia: ${art.familia_desc}`);
-    if (art.saldo != null) l.push(`Saldo: ${art.saldo} ${art.ustock_abrev || ''}`);
-    if (art.ite_pruv) l.push(`Precio: S/. ${Number(art.ite_pruv).toFixed(2)}`);
-    return l.join('\n');
   };
 
   if (cargando) return <View style={styles.center}><ActivityIndicator size="large" color={tema.primario} /></View>;
@@ -243,7 +217,7 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
               campoId="telefono" campoNombre="nombre" campoTelefono="telefono" color="#128C7E" />
           </View>
 
-          {/* Chips de destinos seleccionados */}
+          {/* Chips de destinos */}
           {todosDestinos.length > 0 && (
             <View style={styles.chipsContainer}>
               {clientesSel.map(c => (
@@ -281,30 +255,6 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Artículos */}
-          <Text style={[styles.label, { color: tema.textoSuave }]}>Artículos{articulosSel.length > 0 ? ` (${articulosSel.length})` : ''}</Text>
-          <FiltroPopup titulo="Artículos" items={articulos} seleccionados={articulosSel}
-            onToggle={(item) => {
-              const existe = articulosSel.find(a => a.ite_item === item.ite_item);
-              const nuevos = existe ? articulosSel.filter(a => a.ite_item !== item.ite_item) : [...articulosSel, item];
-              setArticulosSel(nuevos);
-              if (nuevos.length === 1) setMensaje(generarMensajeArticulo(nuevos[0]));
-            }}
-            campoId="ite_item" campoNombre="ite_dsit" campoTelefono={null} color="#27ae60" />
-
-          {articulosSel.length > 0 && (
-            <View style={styles.chipsContainer}>
-              {articulosSel.map(a => (
-                <View key={a.ite_item} style={[styles.chip, { borderColor: '#27ae6040' }]}>
-                  <Text style={{ color: '#222', fontSize: 12 }}>{a.ite_dsit || a.ite_item}</Text>
-                  <TouchableOpacity onPress={() => setArticulosSel(prev => prev.filter(x => x.ite_item !== a.ite_item))}>
-                    <Text style={{ color: '#c0392b', fontSize: 14, fontWeight: '700', paddingHorizontal: 4 }}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-
           {/* Resultado */}
           {resultado && (
             <View style={[styles.resultado, { backgroundColor: resultado.ok ? '#d4edda' : '#f8d7da' }]}>
@@ -321,7 +271,7 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
             {enviando ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnEnviarText}>📱 Enviar a {todosDestinos.length} destino(s)</Text>
+              <Text style={styles.btnEnviarText}>▶ Enviar a {todosDestinos.length} destino(s)</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -341,10 +291,10 @@ const styles = StyleSheet.create({
   chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f5f6fa', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1 },
   resultado: { borderRadius: 6, padding: 10, marginBottom: 10 },
-  btnEnviar: { backgroundColor: '#25D366', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4, marginBottom: 20 },
+  btnEnviar: { backgroundColor: '#25D366', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4, marginBottom: 20, flexDirection: 'row', justifyContent: 'center', gap: 8 },
   btnEnviarText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: '70%' },
+  modalContent: { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: '70%', backgroundColor: '#fff' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: '#222' },
   modalSearch: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, marginBottom: 10, backgroundColor: '#f5f6fa' },

@@ -38,7 +38,7 @@ function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNom
 
       <Modal visible={abierto} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: '#fff' }]}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{titulo}</Text>
               <TouchableOpacity onPress={() => { setAbierto(false); setBusqueda(''); }}>
@@ -58,7 +58,7 @@ function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNom
             <FlatList
               data={filtrados}
               keyExtractor={(item) => String(item[campoId])}
-              style={{ maxHeight: 350 }}
+              style={{ maxHeight: 300 }}
               renderItem={({ item }) => {
                 const sel = seleccionadosIds.includes(item[campoId]);
                 return (
@@ -254,6 +254,29 @@ export default function WhatsAppArticuloScreen({ route, navigation }) {
               campoId="telefono" campoNombre="nombre" campoTelefono="telefono" color="#128C7E" />
           </View>
 
+          {/* Artículos */}
+          <Text style={[styles.label, { color: tema.textoSuave }]}>Artículos{articulosSel.length > 0 ? ` (${articulosSel.length})` : ''}</Text>
+          <FiltroPopup titulo="Artículos" items={articulos} seleccionados={articulosSel}
+            onToggle={(item) => {
+              const existe = articulosSel.find(a => a.ite_item === item.ite_item);
+              const nuevos = existe ? articulosSel.filter(a => a.ite_item !== item.ite_item) : [...articulosSel, item];
+              setArticulosSel(nuevos);
+            }}
+            campoId="ite_item" campoNombre="ite_dsit" campoTelefono={null} color="#27ae60" />
+
+          {articulosSel.length > 0 && (
+            <View style={styles.chipsContainer}>
+              {articulosSel.map(a => (
+                <View key={a.ite_item} style={[styles.chip, { borderColor: '#27ae6040' }]}>
+                  <Text style={{ color: '#222', fontSize: 12 }}>{a.ite_dsit || a.ite_item}</Text>
+                  <TouchableOpacity onPress={() => setArticulosSel(prev => prev.filter(x => x.ite_item !== a.ite_item))}>
+                    <Text style={{ color: '#c0392b', fontSize: 14, fontWeight: '700', paddingHorizontal: 4 }}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+
           {/* Chips de destinos */}
           {todosDestinos.length > 0 && (
             <View style={styles.chipsContainer}>
@@ -315,7 +338,7 @@ export default function WhatsAppArticuloScreen({ route, navigation }) {
             {enviando ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnEnviarText}>📱 Enviar a {todosDestinos.length} destino(s)</Text>
+              <Text style={styles.btnEnviarText}>▶ Enviar a {todosDestinos.length} destino(s)</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -338,10 +361,10 @@ const styles = StyleSheet.create({
   articuloImg: { width: 60, height: 60, borderRadius: 8, backgroundColor: '#f0f0f0' },
   progreso: { borderRadius: 6, padding: 8, marginBottom: 8 },
   resultado: { borderRadius: 6, padding: 10, marginBottom: 10 },
-  btnEnviar: { backgroundColor: '#25D366', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4, marginBottom: 20 },
+  btnEnviar: { backgroundColor: '#25D366', borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 4, marginBottom: 20, flexDirection: 'row', justifyContent: 'center', gap: 8 },
   btnEnviarText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: '70%' },
+  modalContent: { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: '70%', backgroundColor: '#fff' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: '#222' },
   modalSearch: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, marginBottom: 10, backgroundColor: '#f5f6fa' },
