@@ -18,6 +18,10 @@ import ElegirClienteScreen from './src/screens/ElegirClienteScreen';
 import NuevaIncidenciaScreen from './src/screens/NuevaIncidenciaScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
 import ConfiguracionScreen, { ConfigSyncScreen, ConfigUsuariosScreen } from './src/screens/ConfiguracionScreen';
+import ArticulosScreen from './src/screens/ArticulosScreen';
+import ArticuloDetalleScreen from './src/screens/ArticuloDetalleScreen';
+import WhatsAppScreen from './src/screens/WhatsAppScreen';
+import WhatsAppClienteScreen from './src/screens/WhatsAppClienteScreen';
 import HeaderButtons from './src/components/HeaderButtons';
 
 const Drawer = createDrawerNavigator();
@@ -110,6 +114,26 @@ function DashboardStack() {
   );
 }
 
+function ArticulosStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ArticulosLista" component={ArticulosScreen} />
+      <Stack.Screen name="ArticuloDetalle" component={ArticuloDetalleScreen}
+        options={({ route }) => opcionesHeader(route.params?.nombre || route.params?.codigo || 'Artículo')} />
+    </Stack.Navigator>
+  );
+}
+
+function WhatsAppStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="WhatsAppInicio" component={WhatsAppScreen} />
+      <Stack.Screen name="WhatsAppCliente" component={WhatsAppClienteScreen}
+        options={opcionesHeader('Enviar mensaje')} />
+    </Stack.Navigator>
+  );
+}
+
 // ============================================================
 // Menú lateral: opciones según los permisos del usuario.
 // ============================================================
@@ -123,8 +147,10 @@ function DrawerMenu() {
   const opciones = [];
   if (puede('dashboard.ver')) opciones.push({ name: 'Dashboard', title: 'Dashboard', component: DashboardStack });
   if (puede('clientes.ver')) opciones.push({ name: 'Clientes', title: 'Clientes', component: ClientesStack });
+  if (puede('clientes.ver')) opciones.push({ name: 'Artículos', title: 'Artículos', component: ArticulosStack });
   if (puede('reportes.saldos')) opciones.push({ name: 'Reportes', title: 'Reportes', component: ReportesStack });
   if (puede('incidencias.ver')) opciones.push({ name: 'Incidencias', title: 'Incidencias', component: IncidenciasStack });
+  if (puede('whatsapp.ver') || puede('clientes.ver')) opciones.push({ name: 'WhatsApp', title: 'WhatsApp', component: WhatsAppStack });
   if (puede('sync.ejecutar') || puede('config.usuarios')) {
     opciones.push({ name: 'Configuración', title: 'Configuración', component: ConfigStack });
   }

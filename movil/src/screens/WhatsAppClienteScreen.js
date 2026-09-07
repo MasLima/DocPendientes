@@ -99,6 +99,7 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
   const [vendedoresSel, setVendedoresSel] = useState([]);
   const [empleadosSel, setEmpleadosSel] = useState([]);
   const [contactosWASel, setContactosWASel] = useState([]);
+  const [telefonosAdicionales, setTelefonosAdicionales] = useState('');
   const [mensaje, setMensaje] = useState('');
 
   const [enviando, setEnviando] = useState(false);
@@ -137,11 +138,16 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
       : [...prev, item]);
   };
 
+  const telAdicionales = React.useMemo(() => {
+    return telefonosAdicionales.split(',').map(t => t.trim()).filter(t => t.length > 0).map(t => ({ ter_cell: t, ter_deno: t, _esTelefonoAdicional: true }));
+  }, [telefonosAdicionales]);
+
   const todosDestinos = [
     ...clientesSel.map(c => ({ ...c, _tipo: 'Cliente' })),
     ...vendedoresSel.map(v => ({ ...v, _tipo: 'Vendedor' })),
     ...empleadosSel.map(e => ({ ...e, ter_deno: e.nombre, _tipo: 'Empleado' })),
-    ...contactosWASel.map(c => ({ ...c, ter_deno: c.nombre, _tipo: 'Contacto WA' }))
+    ...contactosWASel.map(c => ({ ...c, ter_deno: c.nombre, _tipo: 'Contacto WA' })),
+    ...telAdicionales
   ];
 
   const enviar = async () => {
@@ -172,6 +178,7 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
         setVendedoresSel([]);
         setEmpleadosSel([]);
         setContactosWASel([]);
+        setTelefonosAdicionales('');
         setMensaje('');
       }
     } catch (err) {
@@ -254,6 +261,18 @@ export default function WhatsAppClienteScreen({ route, navigation }) {
               ))}
             </View>
           )}
+
+          {/* Teléfonos adicionales */}
+          <Text style={[styles.label, { color: tema.textoSuave }]}>Teléfonos adicionales</Text>
+          <TextInput
+            style={[styles.input, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
+            placeholder="Ej: 923287233, 912345678, 998877665"
+            placeholderTextColor={tema.textoSuave}
+            value={telefonosAdicionales}
+            onChangeText={setTelefonosAdicionales}
+            keyboardType="phone-pad"
+          />
+          <Text style={{ fontSize: 11, color: tema.textoSuave, marginBottom: 8 }}>Separar con coma. Ej: 923287233, 912345678</Text>
 
           {/* Resultado */}
           {resultado && (
