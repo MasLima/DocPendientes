@@ -49,6 +49,10 @@ router.get('/', async (req, res) => {
       const like = `%${req.query.q}%`;
       params.push(like, like, like);
     }
+    if (req.query.vendedor) {
+      where += ' AND i.use_emno = ?';
+      params.push(req.query.vendedor);
+    }
     if (req.query.independientes === '1') {
       where += ' AND i.ter_cote IS NULL';
     } else if (!req.query.cliente) {
