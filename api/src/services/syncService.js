@@ -173,9 +173,14 @@ async function _syncArticulosBase(modo) {
   const saldosMap = new Map(saldos.map(s => [s.sto_item, Number(s.saldo) || 0]));
 
   const [compras] = await erp.query(
-    `SELECT sto_item, MAX(sto_fere) AS fecha_compra, MAX(sto_cous) AS importe_compra
-     FROM mlosto040 WHERE sto_stat IN ('90','99') AND sto_timo IN ('100','207')
-     GROUP BY sto_item`
+    `SELECT sto_item, sto_fere AS fecha_compra, sto_cous AS importe_compra
+     FROM (
+       SELECT sto_item, sto_fere, sto_cous,
+              ROW_NUMBER() OVER (PARTITION BY sto_item ORDER BY TIMESTAMP(sto_fere, sto_hore) DESC) AS rn
+       FROM mlosto040
+       WHERE sto_stat IN ('90','99') AND sto_timo IN ('100','207')
+     ) ranked
+     WHERE rn = 1`
   );
   const comprasMap = new Map(compras.map(c => [c.sto_item, { fecha: c.fecha_compra, importe: Number(c.importe_compra) || 0 }]));
 

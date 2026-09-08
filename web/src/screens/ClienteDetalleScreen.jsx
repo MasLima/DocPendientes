@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
-import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, EyeIcon, PlusIcon } from '../components/Iconos';
+import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, EyeIcon, PlusIcon, ChatbubbleIcon, WhatsAppIcon } from '../components/Iconos';
 import Exportar from '../components/Exportar';
+import WhatsAppModal from '../components/WhatsAppModal';
 
 function fmt(v) {
   return Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -192,6 +193,7 @@ export default function ClienteDetalleScreen() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [pestana, setPestana] = useState('pendientes');
+  const [waModal, setWaModal] = useState(false);
 
   // Parámetros del cronograma de vencimientos
   const [cantRangos, setCantRangos] = useState(4);
@@ -310,9 +312,9 @@ export default function ClienteDetalleScreen() {
     <div>
       <button className="btn btn-ghost" style={{ marginBottom: 12 }} onClick={() => navigate(-1)}>← Volver</button>
 
-      <div className="card" style={{ background: 'var(--primario)', color: '#fff', marginBottom: 14 }}>
-        <div style={{ fontSize: 20, fontWeight: 800 }}>{cliente.ter_deno}</div>
-        <div style={{ color: '#c8d1e0', fontSize: 13, marginTop: 2 }}>
+      <div className="card" style={{ background: 'var(--grid-header)', color: 'var(--texto)', marginBottom: 14, border: '1px solid var(--borde)' }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>{cliente.ter_cote} - {cliente.ter_deno}</div>
+        <div style={{ fontSize: 13, marginTop: 2, color: 'var(--texto-suave)' }}>
           {cliente.ter_rucn || 'Sin RUC'} {cliente.ter_dire ? `| ${cliente.ter_dire}` : ''}
         </div>
       </div>
@@ -342,40 +344,45 @@ export default function ClienteDetalleScreen() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-        <button className="btn btn-adicionar btn-accion" onClick={() => navigate(`/incidencias/nueva?cliente=${cliente.ter_cote}&nombre=${encodeURIComponent(cliente.ter_deno)}`)}>
-          <PlusIcon size={20} /> Registrar incidencia
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff', height: 40 }} onClick={() => navigate(`/incidencias/nueva?cliente=${cliente.ter_cote}&nombre=${encodeURIComponent(cliente.ter_deno)}`)}>
+          <PlusIcon size={22} /> Registrar incidencia
         </button>
-        <button className="btn btn-verde" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => navigate(`/clientes/${cliente.ter_cote}/incidencias`)}>
-          <EyeIcon size={16} /> Ver incidencias
+        <button className="btn btn-accion" style={{ background: 'var(--warning)', color: '#fff', height: 40 }} onClick={() => navigate(`/clientes/${cliente.ter_cote}/incidencias`)}>
+          <EyeIcon size={18} /> Ver incidencias
+        </button>
+        <button className="btn btn-accion" style={{ background: '#25D366', color: '#fff', height: 40 }} onClick={() => setWaModal(true)}>
+          <WhatsAppIcon size={18} /> WhatsApp
         </button>
       </div>
+
+      <WhatsAppModal abierto={waModal} onClose={() => setWaModal(false)} token={token} cliente={cliente} />
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <button
           className="btn btn-ghost"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'pendientes' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'pendientes' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'pendientes' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'pendientes' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
           onClick={() => setPestana('pendientes')}
         >
           <DocumentIcon size={18} /> Documentos Pendientes
         </button>
         <button
           className="btn btn-ghost"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'cronograma' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'cronograma' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'cronograma' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'cronograma' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
           onClick={() => setPestana('cronograma')}
         >
           <CalendarIcon size={18} /> Cronograma de Vencimientos
         </button>
         <button
           className="btn btn-ghost"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'antiguedad' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'antiguedad' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'antiguedad' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'antiguedad' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
           onClick={() => setPestana('antiguedad')}
         >
           <TimeIcon size={18} /> Antigüedad de la Deuda
         </button>
         <button
           className="btn btn-ghost"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'resumen' ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === 'resumen' ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'resumen' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'resumen' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
           onClick={() => setPestana('resumen')}
         >
           <StatsIcon size={18} /> Resumen
