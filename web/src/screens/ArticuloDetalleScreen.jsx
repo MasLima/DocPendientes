@@ -78,7 +78,7 @@ export default function ArticuloDetalleScreen() {
     ['Estado', articulo.estado_desc || '-'],
     ['Saldo actual', `${formatearNumero(articulo.saldo)} ${articulo.ustock_abrev || ''}`],
     ['Fecha ultima compra', formatearFecha(articulo.fecha_compra)],
-    ['Importe ultima compra', `S/. ${formatearNumero(articulo.importe_compra)}`],
+    ['Importe ultima compra', `S/. ${formatearNumero(articulo.importe_compra, 3)}`],
     ['Fecha ultima venta', formatearFecha(articulo.ite_feuv)],
     ['Importe ultima venta', `S/. ${formatearNumero(articulo.ite_pruv)}`],
     ['Costo soles', `S/. ${formatearNumero(articulo.ite_copr)}`],
@@ -216,7 +216,7 @@ export default function ArticuloDetalleScreen() {
             <FilaDetalle label="Linea" valor={articulo.linea_desc || '-'} />
             <FilaDetalle label="Familia" valor={articulo.familia_desc || '-'} />
             <FilaDetalle label="Fecha ultima compra" valor={formatearFecha(articulo.fecha_compra)} />
-            <FilaDetalle label="Importe ultima compra" valor={`S/. ${formatearNumero(articulo.importe_compra)}`} />
+            <FilaDetalle label="Importe ultima compra" valor={`S/. ${formatearNumero(articulo.importe_compra, 3)}`} />
             <FilaDetalle label="Fecha ultima venta" valor={formatearFecha(articulo.ite_feuv)} />
             <FilaDetalle label="Importe ultima venta" valor={`S/. ${formatearNumero(articulo.ite_pruv)}`} />
             <FilaDetalle label="Costo en Soles" valor={`S/. ${formatearNumero(articulo.ite_copr)}`} />
