@@ -240,13 +240,18 @@ export default function IncidenciasScreen({ navigation }) {
           <>
             {/* Contador + Ver historial */}
             <View style={styles.histInfo}>
-              <Text style={{ color: tema.textoSuave, fontSize: 12 }}>
-                {mostrarHistorial ? `Todas (${incidencias.length})` : `Últimas ${Math.min(POR_PAGINA_INC, incidencias.length)}`}
-              </Text>
+              <TouchableOpacity
+                onPress={() => { if (incidencias.length > POR_PAGINA_INC) setMostrarHistorial(false); }}
+                disabled={incidencias.length <= POR_PAGINA_INC}
+              >
+                <Text style={{ color: !mostrarHistorial ? tema.primario : tema.textoSuave, fontSize: 14, fontWeight: !mostrarHistorial ? '700' : '400' }}>
+                  Últimas {Math.min(POR_PAGINA_INC, incidencias.length)}
+                </Text>
+              </TouchableOpacity>
               {incidencias.length > POR_PAGINA_INC && (
                 <TouchableOpacity onPress={() => setMostrarHistorial(!mostrarHistorial)}>
-                  <Text style={{ color: '#2980b9', fontSize: 12, fontWeight: '700' }}>
-                    {mostrarHistorial ? '← Ver menos' : `Ver historial (${incidencias.length}) →`}
+                  <Text style={{ color: mostrarHistorial ? tema.primario : tema.textoSuave, fontSize: 14, fontWeight: mostrarHistorial ? '700' : '400', marginLeft: 12 }}>
+                    Ver historial ({incidencias.length})
                   </Text>
                 </TouchableOpacity>
               )}
