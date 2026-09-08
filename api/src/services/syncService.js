@@ -173,7 +173,9 @@ async function _syncArticulosBase(modo) {
   const saldosMap = new Map(saldos.map(s => [s.sto_item, Number(s.saldo) || 0]));
 
   const [compras] = await erp.query(
-    `SELECT c.sto_item, c.sto_fere AS fecha_compra, c.sto_cous AS importe_compra
+    `SELECT c.sto_item,
+            CAST(c.sto_fere AS CHAR) AS fecha_compra,
+            CAST(c.sto_cous AS DECIMAL(18,8)) AS importe_compra
      FROM mlosto040 c
      INNER JOIN (
        SELECT a.sto_item, MAX(a.sto_fere) AS max_fere
@@ -185,7 +187,10 @@ async function _syncArticulosBase(modo) {
   );
   console.log(`[syncArt] compras del ERP: ${compras.length}`);
   if (compras.length > 0) {
-    console.log(`[syncArt] primera compra: item=${compras[0].sto_item} fecha=${compras[0].fecha_compra} importe=${compras[0].importe_compra} tipo=${typeof compras[0].importe_compra}`);
+    console.log(`[syncArt] MUESTRA (5 primeros):`);
+    compras.slice(0, 5).forEach(c => {
+      console.log(`  item=${c.sto_item} fecha_compra=${JSON.stringify(c.fecha_compra)} importe_compra=${JSON.stringify(c.importe_compra)} tipoImporte=${typeof c.importe_compra}`);
+    });
   }
   const comprasMap = new Map(compras.map(c => [c.sto_item, { fecha: c.fecha_compra, importe: Number(c.importe_compra) || 0 }]));
 
@@ -209,7 +214,7 @@ async function _syncArticulosBase(modo) {
      saldo, linea_desc, familia_desc, unidad_desc, estado_desc,
      fecha_compra, importe_compra, ultima_sync)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, NOW())`;
+            ?, ?, ?, ?, ?, ?, NOW())`;
 
   let insertados = 0, errores = 0, primerError = null;
   for (const item of items) {
@@ -246,6 +251,19 @@ async function _syncArticulosBase(modo) {
   }
   console.log(`[syncArt ${modo}] conUnidades=${conUnidades} items=${items.length} ins=${insertados} err=${errores}`);
   if (primerError) console.log('[syncArt] primer error:', JSON.stringify(primerError));
+
+  const [verif] = await app.query(
+    `SELECT ite_item, fecha_compra, importe_compra FROM articulos
+     WHERE fecha_compra IS NOT NULL OR importe_compra IS NOT NULL
+     ORDER BY ite_item LIMIT 5`
+  );
+  if (verif.length > 0) {
+    console.log('[syncArt] VERIFICACION post-sync:');
+    verif.forEach(v => {
+      console.log(`  ${v.ite_item}: fecha_compra=${JSON.stringify(v.fecha_compra)} importe_compra=${JSON.stringify(v.importe_compra)}`);
+    });
+  }
+
   await logSync('ARTICULOS', insertados, errores > 0 ? (modo === 'completo' ? 'COMPLETO' : 'PARCIAL') : 'OK',
     `insertados=${insertados}${errores > 0 ? ` err=${errores}` : ''}`);
   return { articulos: insertados, errores };
