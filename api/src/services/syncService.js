@@ -173,15 +173,20 @@ async function _syncArticulosBase(modo) {
   const saldosMap = new Map(saldos.map(s => [s.sto_item, Number(s.saldo) || 0]));
 
   const [compras] = await erp.query(
-    `SELECT sto_item, sto_fere AS fecha_compra, sto_cous AS importe_compra
-     FROM (
-       SELECT sto_item, sto_fere, sto_cous,
-              ROW_NUMBER() OVER (PARTITION BY sto_item ORDER BY TIMESTAMP(sto_fere, sto_hore) DESC) AS rn
-       FROM mlosto040
-       WHERE sto_stat IN ('90','99') AND sto_timo IN ('100','207')
-     ) ranked
-     WHERE rn = 1`
+    `SELECT c.sto_item, c.sto_fere AS fecha_compra, c.sto_cous AS importe_compra
+     FROM mlosto040 c
+     INNER JOIN (
+       SELECT a.sto_item, MAX(a.sto_fere) AS max_fere
+       FROM mlosto040 a
+       WHERE a.sto_stat IN ('90','99') AND a.sto_timo IN ('100','207')
+       GROUP BY a.sto_item
+     ) latest ON c.sto_item = latest.sto_item AND c.sto_fere = latest.max_fere
+     WHERE c.sto_stat IN ('90','99') AND c.sto_timo IN ('100','207')`
   );
+  console.log(`[syncArt] compras del ERP: ${compras.length}`);
+  if (compras.length > 0) {
+    console.log(`[syncArt] primera compra: item=${compras[0].sto_item} fecha=${compras[0].fecha_compra} importe=${compras[0].importe_compra} tipo=${typeof compras[0].importe_compra}`);
+  }
   const comprasMap = new Map(compras.map(c => [c.sto_item, { fecha: c.fecha_compra, importe: Number(c.importe_compra) || 0 }]));
 
   if (modo === 'completo') await app.query('DELETE FROM articulos');
