@@ -11,12 +11,10 @@ import ScreenContainer from '../components/ScreenContainer';
 
 const IMG_BASE = 'https://coloma.integrator.pe/data/db0010_01/images/';
 const PRECIOS_CONFIG = {
-  '101': { label: '02 PIEZAS 10', moneda: 'S/' },
-  '102': { label: '03 SELLADO', moneda: 'S/' },
-  '106': { label: '04 DOLARES', moneda: 'US$' }
+  '102': { label: '03 SELLADO', moneda: 'S/' }
 };
 
-function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNombre, campoTelefono, color }) {
+function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNombre, campoTelefono, color, requerirTelefono }) {
   const [abierto, setAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
@@ -64,17 +62,22 @@ function FiltroPopup({ titulo, items, seleccionados, onToggle, campoId, campoNom
               style={{ maxHeight: 300 }}
               renderItem={({ item }) => {
                 const sel = seleccionadosIds.includes(item[campoId]);
+                const tieneTel = campoTelefono ? !!item[campoTelefono] : true;
+                const bloqueado = requerirTelefono && !tieneTel;
                 return (
                   <TouchableOpacity
-                    style={[styles.modalItem, { backgroundColor: sel ? `${color}10` : '#fff', borderLeftWidth: 3, borderLeftColor: sel ? color : 'transparent' }]}
-                    onPress={() => onToggle(item)}
+                    style={[styles.modalItem, { backgroundColor: sel ? `${color}10` : '#fff', borderLeftWidth: 3, borderLeftColor: sel ? color : 'transparent', opacity: bloqueado ? 0.4 : 1 }]}
+                    onPress={() => { if (!bloqueado) onToggle(item); }}
+                    disabled={bloqueado}
                   >
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: '#222', fontSize: 14, fontWeight: sel ? '700' : '400' }}>
                         {item[campoNombre] || 'Sin nombre'}
                       </Text>
-                      {campoTelefono && item[campoTelefono] ? (
-                        <Text style={{ color: '#888', fontSize: 12 }}>{item[campoTelefono]}</Text>
+                      {campoTelefono ? (
+                        <Text style={{ color: tieneTel ? '#888' : '#c0392b', fontSize: 12 }}>
+                          {item[campoTelefono] || 'Sin teléfono'}
+                        </Text>
                       ) : null}
                     </View>
                     {sel && <Text style={{ color, fontSize: 16 }}>✓</Text>}
@@ -103,6 +106,7 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
   const [vendedores, setVendedores] = useState([]);
   const [clientesSel, setClientesSel] = useState([]);
   const [vendedoresSel, setVendedoresSel] = useState([]);
+  const [telAdicionales, setTelAdicionales] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState(null);
@@ -155,11 +159,9 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
     l.push(`Código: ${art.ite_item}`);
     if (art.linea_desc) l.push(`Línea: ${art.linea_desc}`);
     if (art.familia_desc) l.push(`Familia: ${art.familia_desc}`);
-    if (art.saldo != null) l.push(`Saldo: ${fmtNum(art.saldo)} ${art.ustock_abrev || ''}`);
-    Object.entries(PRECIOS_CONFIG).forEach(([code, cfg]) => {
-      const p = preciosMap[code];
-      if (p) l.push(`${cfg.label} (${cfg.moneda}): ${cfg.moneda} ${fmtNum3(p.ven_pigv)}`);
-    });
+    if (art.saldo != null) l.push(`STOCK: ${fmtNum(art.saldo)} ${art.ustock_abrev || ''}`);
+    const p = preciosMap['102'];
+    if (p) l.push(`03 SELLADO S/${fmtNum3(p.ven_pigv)}`);
     return l.join('\n');
   };
 
@@ -171,7 +173,8 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
 
   const todosDestinos = [
     ...clientesSel.map(c => ({ ...c, _tipo: 'Cliente' })),
-    ...vendedoresSel.map(v => ({ ...v, _tipo: 'Vendedor' }))
+    ...vendedoresSel.map(v => ({ ...v, _tipo: 'Vendedor' })),
+    ...telAdicionales.split(',').map(t => t.trim()).filter(Boolean).map(t => ({ ter_cell: t, ter_deno: t, _tipo: 'Contacto' }))
   ];
 
   const enviarWhatsApp = async () => {
@@ -277,17 +280,25 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
               <View style={styles.waFiltros}>
                 <FiltroPopup titulo="Clientes" items={clientes} seleccionados={clientesSel}
                   onToggle={(item) => toggleItem(item, setClientesSel, 'ter_cote')}
-                  campoId="ter_cote" campoNombre="ter_deno" campoTelefono="ter_cell" color="#3498db" />
+                  campoId="ter_cote" campoNombre="ter_deno" campoTelefono="ter_cell" color="#3498db" requerirTelefono />
                 <FiltroPopup titulo="Vendedores" items={vendedores} seleccionados={vendedoresSel}
                   onToggle={(item) => toggleItem(item, setVendedoresSel, 'ter_cote')}
-                  campoId="ter_cote" campoNombre="ter_deno" campoTelefono="ter_cell" color="#e67e22" />
+                  campoId="ter_cote" campoNombre="ter_deno" campoTelefono="ter_cell" color="#e67e22" requerirTelefono />
               </View>
+
+              <TextInput
+                style={[styles.waInput, { backgroundColor: tema.fondo, borderColor: tema.borde, color: tema.texto }]}
+                placeholder="Teléfonos adicionales (separados por coma)"
+                placeholderTextColor="#999"
+                value={telAdicionales}
+                onChangeText={setTelAdicionales}
+              />
 
               {todosDestinos.length > 0 && (
                 <View style={styles.waChips}>
                   {clientesSel.map(c => (
                     <View key={c.ter_cote} style={[styles.waChip, { borderColor: '#3498db40' }]}>
-                      <Text style={{ color: '#222', fontSize: 11 }}>{c.ter_deno}</Text>
+                      <Text style={{ color: '#222', fontSize: 11 }}>{c.ter_deno} {c.ter_cell ? `· ${c.ter_cell}` : ''}</Text>
                       <TouchableOpacity onPress={() => setClientesSel(prev => prev.filter(x => x.ter_cote !== c.ter_cote))}>
                         <Text style={{ color: '#c0392b', fontSize: 13, fontWeight: '700', paddingHorizontal: 3 }}>×</Text>
                       </TouchableOpacity>
@@ -295,8 +306,20 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
                   ))}
                   {vendedoresSel.map(v => (
                     <View key={v.ter_cote} style={[styles.waChip, { borderColor: '#e67e2240' }]}>
-                      <Text style={{ color: '#222', fontSize: 11 }}>{v.ter_deno}</Text>
+                      <Text style={{ color: '#222', fontSize: 11 }}>{v.ter_deno} {v.ter_cell ? `· ${v.ter_cell}` : ''}</Text>
                       <TouchableOpacity onPress={() => setVendedoresSel(prev => prev.filter(x => x.ter_cote !== v.ter_cote))}>
+                        <Text style={{ color: '#c0392b', fontSize: 13, fontWeight: '700', paddingHorizontal: 3 }}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  {telAdicionales.split(',').map(t => t.trim()).filter(Boolean).map((t, i) => (
+                    <View key={`tel-${i}`} style={[styles.waChip, { borderColor: '#88888840' }]}>
+                      <Text style={{ color: '#222', fontSize: 11 }}>{t}</Text>
+                      <TouchableOpacity onPress={() => {
+                        const parts = telAdicionales.split(',').map(x => x.trim()).filter(Boolean);
+                        parts.splice(i, 1);
+                        setTelAdicionales(parts.join(', '));
+                      }}>
                         <Text style={{ color: '#c0392b', fontSize: 13, fontWeight: '700', paddingHorizontal: 3 }}>×</Text>
                       </TouchableOpacity>
                     </View>
@@ -348,12 +371,12 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
                 <Campo label="Familia" valor={art.familia_desc} />
               </View>
               <View style={styles.camposGrid}>
-                <Campo label="U. Medida Stock" valor={uStock} />
-                <Campo label="Stock Disponible" valor={`${fmtNum(art.saldo)} ${art.ustock_abrev || ''}`} />
+                <Campo label="Fecha Últ. Compra" valor={fmtFecha(art.fecha_compra)} />
+                <Campo label="Importe Compra" valor={art.importe_compra != null ? `S/ ${fmtNum3(art.importe_compra)}` : '-'} />
               </View>
               <View style={styles.camposGrid}>
-                <Campo label="Fecha Últ. Compra" valor={fmtFecha(art.fecha_compra)} />
                 <Campo label="Fecha Últ. Venta" valor={fmtFecha(art.ite_feuv)} />
+                <Campo label="U. Medida Stock" valor={uStock} />
               </View>
             </View>
           )}
@@ -428,7 +451,7 @@ const styles = StyleSheet.create({
   tab: { paddingVertical: 10, marginRight: 20, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabContent: { padding: 12 },
   imgContainer: { borderRadius: 10, borderWidth: 1, padding: 8, marginBottom: 12 },
-  img: { width: '100%', height: 250, borderRadius: 8 },
+  img: { width: '100%', height: 180, borderRadius: 8 },
   imgName: { textAlign: 'center', fontSize: 11, fontFamily: 'monospace', marginTop: 6 },
   sinImg: { borderRadius: 10, borderWidth: 1, height: 150, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   camposGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
