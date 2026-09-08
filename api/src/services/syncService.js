@@ -172,28 +172,6 @@ async function _syncArticulosBase(modo) {
   );
   const saldosMap = new Map(saldos.map(s => [s.sto_item, Number(s.saldo) || 0]));
 
-  const [compras] = await erp.query(
-    `SELECT c.sto_item,
-            CAST(c.sto_fere AS CHAR) AS fecha_compra,
-            CAST(c.sto_cous AS DECIMAL(18,8)) AS importe_compra
-     FROM mlosto040 c
-     INNER JOIN (
-       SELECT a.sto_item, MAX(a.sto_fere) AS max_fere
-       FROM mlosto040 a
-       WHERE a.sto_stat IN ('90','99') AND a.sto_timo IN ('100','207')
-       GROUP BY a.sto_item
-     ) latest ON c.sto_item = latest.sto_item AND c.sto_fere = latest.max_fere
-     WHERE c.sto_stat IN ('90','99') AND c.sto_timo IN ('100','207')`
-  );
-  console.log(`[syncArt] compras del ERP: ${compras.length}`);
-  if (compras.length > 0) {
-    console.log(`[syncArt] MUESTRA (5 primeros):`);
-    compras.slice(0, 5).forEach(c => {
-      console.log(`  item=${c.sto_item} fecha_compra=${JSON.stringify(c.fecha_compra)} importe_compra=${JSON.stringify(c.importe_compra)} tipoImporte=${typeof c.importe_compra}`);
-    });
-  }
-  const comprasMap = new Map(compras.map(c => [c.sto_item, { fecha: c.fecha_compra, importe: Number(c.importe_compra) || 0 }]));
-
   if (modo === 'completo') await app.query('DELETE FROM articulos');
 
   const sqlCon = `REPLACE INTO articulos
@@ -201,26 +179,25 @@ async function _syncArticulosBase(modo) {
      ite_usto, ite_imag, ite_coar, ite_coli, ite_cofa, ite_esta,
      ite_pruv, ite_feuv, ite_copr, ite_codl,
      saldo, linea_desc, familia_desc, unidad_desc, estado_desc,
-     fecha_compra, importe_compra, ultima_sync,
+     ultima_sync,
      uventa_desc, ucompra_desc, ustock_desc,
      uventa_abrev, ucompra_abrev, ustock_abrev)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)`;
+            ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)`;
 
   const sqlSin = `REPLACE INTO articulos
     (ite_item, ite_codi, ite_dsit, ite_dste, ite_uven, ite_ucom,
      ite_usto, ite_imag, ite_coar, ite_coli, ite_cofa, ite_esta,
      ite_pruv, ite_feuv, ite_copr, ite_codl,
      saldo, linea_desc, familia_desc, unidad_desc, estado_desc,
-     fecha_compra, importe_compra, ultima_sync)
+     ultima_sync)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?, NOW())`;
+            ?, ?, ?, ?, NOW())`;
 
   let insertados = 0, errores = 0, primerError = null;
   for (const item of items) {
     try {
       const saldo = saldosMap.get(item.ite_item) || Number(item.ite_stog) || 0;
-      const compra = comprasMap.get(item.ite_item) || null;
       const dste = item.ite_dste ? String(item.ite_dste) : null;
       const uv = unidadesMap.get(item.ite_uven) || {};
       const uc = unidadesMap.get(item.ite_ucom) || {};
@@ -232,8 +209,7 @@ async function _syncArticulosBase(modo) {
         item.ite_pruv, item.ite_feuv, item.ite_copr, item.ite_codl,
         saldo,
         lineasMap.get(item.ite_coli) || null, familiasMap.get(item.ite_cofa) || null,
-        us.desc || null, estadosMap.get(item.ite_esta) || null,
-        compra ? compra.fecha : null, compra ? compra.importe : null
+        us.desc || null, estadosMap.get(item.ite_esta) || null
       ];
       if (conUnidades) {
         await app.query(sqlCon, [...base,
@@ -252,18 +228,6 @@ async function _syncArticulosBase(modo) {
   console.log(`[syncArt ${modo}] conUnidades=${conUnidades} items=${items.length} ins=${insertados} err=${errores}`);
   if (primerError) console.log('[syncArt] primer error:', JSON.stringify(primerError));
 
-  const [verif] = await app.query(
-    `SELECT ite_item, fecha_compra, importe_compra FROM articulos
-     WHERE fecha_compra IS NOT NULL OR importe_compra IS NOT NULL
-     ORDER BY ite_item LIMIT 5`
-  );
-  if (verif.length > 0) {
-    console.log('[syncArt] VERIFICACION post-sync:');
-    verif.forEach(v => {
-      console.log(`  ${v.ite_item}: fecha_compra=${JSON.stringify(v.fecha_compra)} importe_compra=${JSON.stringify(v.importe_compra)}`);
-    });
-  }
-
   await logSync('ARTICULOS', insertados, errores > 0 ? (modo === 'completo' ? 'COMPLETO' : 'PARCIAL') : 'OK',
     `insertados=${insertados}${errores > 0 ? ` err=${errores}` : ''}`);
   return { articulos: insertados, errores };
@@ -275,6 +239,64 @@ async function syncArticulosParcial() {
 
 async function syncArticulosCompleto() {
   return _syncArticulosBase('completo');
+}
+
+// ==================== COMPRAS ====================
+
+async function syncComprasParcial() {
+  const [items] = await erp.query(
+    `SELECT c.sto_item,
+            CAST(c.sto_fere AS CHAR) AS fecha_compra,
+            CAST(c.sto_cous AS DECIMAL(18,8)) AS importe_compra
+     FROM mlosto040 c
+     INNER JOIN (
+       SELECT a.sto_item, MAX(a.sto_fere) AS max_fere
+       FROM mlosto040 a
+       WHERE a.sto_stat IN ('90','99') AND a.sto_timo IN ('100','207')
+       GROUP BY a.sto_item
+     ) latest ON c.sto_item = latest.sto_item AND c.sto_fere = latest.max_fere
+     WHERE c.sto_stat IN ('90','99') AND c.sto_timo IN ('100','207')`
+  );
+  console.log(`[syncCompras] compras del ERP: ${items.length}`);
+  if (items.length > 0) {
+    console.log(`[syncCompras] MUESTRA (5 primeros):`);
+    items.slice(0, 5).forEach(c => {
+      console.log(`  item=${c.sto_item} fecha=${JSON.stringify(c.fecha_compra)} importe=${JSON.stringify(c.importe_compra)} tipo=${typeof c.importe_compra}`);
+    });
+  }
+
+  let actualizados = 0, errores = 0, primerError = null;
+  for (const row of items) {
+    try {
+      await app.query(
+        `UPDATE articulos SET fecha_compra = ?, importe_compra = ? WHERE ite_item = ?`,
+        [row.fecha_compra, Number(row.importe_compra) || 0, row.sto_item]
+      );
+      actualizados++;
+    } catch (e) {
+      errores++;
+      if (!primerError) primerError = { item: row.sto_item, msg: e.message, code: e.code };
+      if (errores <= 5) console.error(`[syncCompras] ${row.sto_item}:`, e.code, '-', e.message);
+    }
+  }
+
+  const [verif] = await app.query(
+    `SELECT ite_item, fecha_compra, importe_compra FROM articulos
+     WHERE fecha_compra IS NOT NULL OR importe_compra IS NOT NULL
+     ORDER BY ite_item LIMIT 5`
+  );
+  if (verif.length > 0) {
+    console.log('[syncCompras] VERIFICACION post-sync:');
+    verif.forEach(v => {
+      console.log(`  ${v.ite_item}: fecha=${JSON.stringify(v.fecha_compra)} importe=${JSON.stringify(v.importe_compra)}`);
+    });
+  }
+
+  console.log(`[syncCompras] items=${items.length} upd=${actualizados} err=${errores}`);
+  if (primerError) console.log('[syncCompras] primer error:', JSON.stringify(primerError));
+  await logSync('COMPRAS', actualizados, errores > 0 ? 'PARCIAL' : 'OK',
+    `actualizados=${actualizados}${errores > 0 ? ` err=${errores}` : ''}`);
+  return { compras: actualizados, errores };
 }
 
 // ==================== PRECIOS ====================
@@ -595,6 +617,7 @@ const FUNCIONES_PARCIAL = {
   tipos: syncTiposDocumentoParcial,
   bancos: syncBancosParcial,
   articulos: syncArticulosParcial,
+  compras: syncComprasParcial,
   precios: syncPrecios
 };
 
@@ -604,6 +627,7 @@ const FUNCIONES_COMPLETO = {
   tipos: syncTiposDocumentoCompleto,
   bancos: syncBancosCompleto,
   articulos: syncArticulosCompleto,
+  compras: syncComprasParcial,
   precios: syncPrecios
 };
 
@@ -613,7 +637,7 @@ const FUNCIONES_COMPLETO = {
 //   El modo completo solo aplica a tablas catalogo (maestros, condiciones, tipos, bancos, articulos).
 //   Documentos siempre es completo, incidencias/usuarios siempre son incrementales.
 async function syncCompleto(procesos = null, modo = 'parcial') {
-  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'precios'];
+  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'compras', 'precios'];
   const seleccion = procesos && procesos.length ? procesos : validos;
   const resultados = {};
 
@@ -640,6 +664,7 @@ module.exports = {
   syncTiposDocumento: syncTiposDocumentoParcial,
   syncBancos: syncBancosParcial,
   syncArticulos: syncArticulosParcial,
+  syncCompras: syncComprasParcial,
   syncPrecios,
   syncDocumentos,
   syncIncidencias,
