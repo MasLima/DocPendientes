@@ -12,7 +12,9 @@ const PROCESOS = [
   { clave: 'documentos', etiqueta: 'Documentos pendientes' },
   { clave: 'incidencias', etiqueta: 'Incidencias' },
   { clave: 'usuarios', etiqueta: 'Usuarios' },
-  { clave: 'articulos', etiqueta: 'Articulos' }
+  { clave: 'articulos', etiqueta: 'Artículos' },
+  { clave: 'compras', etiqueta: 'Compras (fecha e importe)' },
+  { clave: 'precios', etiqueta: 'Precios (lista de precios)' }
 ];
 
 export default function ConfigSyncScreen() {
@@ -58,7 +60,9 @@ export default function ConfigSyncScreen() {
       if (res.documentos) partes.push(`Documentos: ${res.documentos.documentos}`);
       if (res.incidencias) partes.push(`Incidencias nuevas: ${res.incidencias.incidencias} | Actualizadas: ${res.incidencias.actualizadas}`);
       if (res.usuarios) partes.push(`Usuarios: ${res.usuarios.usuarios} (nuevos: ${res.usuarios.creados}, actualizados: ${res.usuarios.actualizados}, desactivados: ${res.usuarios.desactivados})`);
-      if (res.articulos) partes.push(`Articulos: ${res.articulos.articulos}`);
+      if (res.articulos) partes.push(`Artículos: ${res.articulos.articulos}`);
+      if (res.compras) partes.push(`Compras: ${res.compras.compras}`);
+      if (res.precios) partes.push(`Precios: ${res.precios.precios}`);
       setResultado(partes.join(' | '));
       cargarLog();
       cargarEstado();
@@ -99,7 +103,7 @@ export default function ConfigSyncScreen() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 20px', marginBottom: 12 }}>
           {PROCESOS.map((p) => (
             <label key={p.clave} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
               <input type="checkbox" checked={procesos.includes(p.clave)} onChange={() => toggleProceso(p.clave)} />

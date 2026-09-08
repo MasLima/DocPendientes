@@ -92,6 +92,7 @@ export function ConfigSyncScreen() {
         `Vendedores: ${r.resultados?.maestros?.vendedores}\n` +
         `Clientes: ${r.resultados?.maestros?.clientes}\n` +
         `Documentos pendientes: ${r.resultados?.documentos?.documentos}\n` +
+        `Compras actualizadas: ${r.resultados?.compras?.compras}\n` +
         `Incidencias nuevas: ${r.resultados?.incidencias?.incidencias}\n` +
         `Incidencias actualizadas: ${r.resultados?.incidencias?.actualizadas}`);
       cargarLog();
@@ -285,7 +286,7 @@ export function ConfigUsuariosScreen() {
           </View>
         )}
 
-        <TouchableOpacity style={styles.btnPrincipal} onPress={guardar}>
+        <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: tema.celeste }]} onPress={guardar}>
           <Text style={styles.btnPrincipalText}>{editando ? 'Guardar cambios' : 'Crear usuario'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.btnSecundario} onPress={() => setVerForm(false)}>
@@ -297,7 +298,7 @@ export function ConfigUsuariosScreen() {
 
   return (
     <View style={[styles.panel, { backgroundColor: tema.fondo }]}>
-      <TouchableOpacity style={styles.btnPrincipal} onPress={abrirNuevo}>
+      <TouchableOpacity style={[styles.btnPrincipal, { backgroundColor: tema.celeste }]} onPress={abrirNuevo}>
         <Text style={styles.btnPrincipalText}>+ Nuevo usuario</Text>
       </TouchableOpacity>
 
