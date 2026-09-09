@@ -367,6 +367,10 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
               )}
 
               <View style={styles.camposGrid}>
+                <Campo label="U. Medida Stock" valor={uStock} />
+                <Campo label="Stock Disponible" valor={`${fmtNum(art.saldo)} ${art.ustock_abrev || ''}`} />
+              </View>
+              <View style={styles.camposGrid}>
                 <Campo label="Línea" valor={art.linea_desc} />
                 <Campo label="Familia" valor={art.familia_desc} />
               </View>
@@ -376,7 +380,6 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
               </View>
               <View style={styles.camposGrid}>
                 <Campo label="Fecha Últ. Venta" valor={fmtFecha(art.ite_feuv)} />
-                <Campo label="U. Medida Stock" valor={uStock} />
               </View>
             </View>
           )}
@@ -451,7 +454,7 @@ const styles = StyleSheet.create({
   tab: { paddingVertical: 10, marginRight: 20, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabContent: { padding: 12 },
   imgContainer: { borderRadius: 10, borderWidth: 1, padding: 8, marginBottom: 12 },
-  img: { width: '100%', height: 180, borderRadius: 8 },
+  img: { width: '100%', height: 250, borderRadius: 8 },
   imgName: { textAlign: 'center', fontSize: 11, fontFamily: 'monospace', marginTop: 6 },
   sinImg: { borderRadius: 10, borderWidth: 1, height: 150, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   camposGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
