@@ -10,7 +10,14 @@ const temas = {
     textoSuave: '#888888',
     primario: '#1a2b4c',
     primarioTexto: '#ffffff',
-    tabInactivo: '#999999'
+    tabInactivo: '#999999',
+    celeste: '#85c1e9',
+    gridHeader: '#d5e8d4',
+    active: '#d5e8d4',
+    warning: '#f5b041',
+    verde: '#27ae60',
+    rojo: '#c0392b',
+    azul: '#2980b9'
   },
   oscuro: {
     esOscuro: true,
@@ -21,7 +28,14 @@ const temas = {
     textoSuave: '#9ca3af',
     primario: '#1a2b4c',
     primarioTexto: '#ffffff',
-    tabInactivo: '#6b7280'
+    tabInactivo: '#6b7280',
+    celeste: '#85c1e9',
+    gridHeader: '#2a3a4a',
+    active: '#2a3a4a',
+    warning: '#f5b041',
+    verde: '#27ae60',
+    rojo: '#c0392b',
+    azul: '#2980b9'
   }
 };
 

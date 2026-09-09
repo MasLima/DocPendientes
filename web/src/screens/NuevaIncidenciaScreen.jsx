@@ -132,8 +132,8 @@ export default function NuevaIncidenciaScreen() {
           <div style={{ color: 'var(--rojo)', fontSize: 13, marginBottom: 12 }}>{error}</div>
         )}
 
-        <button className="btn btn-aceptar btn-accion" type="submit" disabled={guardando} style={{ padding: 14, fontSize: 15 }}>
-          <CheckIcon size={22} /> {guardando ? 'Guardando...' : 'Guardar incidencia'}
+        <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff', height: 40 }} type="submit" disabled={guardando}>
+          <CheckIcon size={20} /> {guardando ? 'Guardando...' : 'Guardar incidencia'}
         </button>
       </form>
     </div>

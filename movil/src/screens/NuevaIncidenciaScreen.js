@@ -5,10 +5,12 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
+import { useTema } from '../context/ThemeContext';
 import { apiPost, apiGet } from '../api/client';
 
 export default function NuevaIncidenciaScreen({ route, navigation }) {
   const { token, user } = useAuth();
+  const { tema } = useTema();
   const { ter_cote, ter_deno } = route.params || {};
 
   const [cliente, setCliente] = useState(ter_cote || '');
@@ -68,14 +70,14 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.label}>Cliente (obligatorio)</Text>
+      <ScrollView style={[styles.container, { backgroundColor: tema.fondo }]} contentContainerStyle={styles.content}>
+        <Text style={[styles.label, { color: tema.primario }]}>Cliente (obligatorio)</Text>
         {nombreCliente ? (
-          <View style={styles.clienteElegido}>
-            <Text style={styles.clienteElegidoNombre}>{nombreCliente} ({cliente})</Text>
+          <View style={[styles.clienteElegido, { backgroundColor: tema.gridHeader }]}>
+            <Text style={[styles.clienteElegidoNombre, { color: tema.texto }]}>{nombreCliente} ({cliente})</Text>
             {!ter_cote && (
               <TouchableOpacity onPress={() => { setCliente(''); setNombreCliente(''); }}>
-                <Text style={styles.cambiar}>Cambiar</Text>
+                <Text style={[styles.cambiar, { color: tema.azul }]}>Cambiar</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -113,30 +115,30 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
           </>
         )}
 
-        <Text style={styles.label}>Descripción de la visita *</Text>
+        <Text style={[styles.label, { color: tema.primario }]}>Descripción de la visita *</Text>
         <TextInput
-          style={[styles.input, styles.textArea]}
+          style={[styles.input, styles.textArea, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
           value={descripcion}
           onChangeText={setDescripcion}
           placeholder="Describe lo encontrado en la visita..."
-          placeholderTextColor="#999"
+          placeholderTextColor={tema.textoSuave}
           multiline
         />
 
-        <Text style={styles.label}>Acción / gestión realizada</Text>
+        <Text style={[styles.label, { color: tema.primario }]}>Acción / gestión realizada</Text>
         <TextInput
-          style={[styles.input, styles.textArea]}
+          style={[styles.input, styles.textArea, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
           value={accion}
           onChangeText={setAccion}
           placeholder="Compromiso, promesa de pago, observaciones..."
-          placeholderTextColor="#999"
+          placeholderTextColor={tema.textoSuave}
           multiline
         />
 
-        <Text style={styles.hint}>Vendedor: {user ? user.use_logi : '-'}</Text>
+        <Text style={[styles.hint, { color: tema.textoSuave }]}>Vendedor: {user ? user.use_logi : '-'}</Text>
 
         <TouchableOpacity
-          style={[styles.btnGuardar, guardando && styles.btnDisabled]}
+          style={[styles.btnGuardar, { backgroundColor: tema.celeste }, guardando && styles.btnDisabled]}
           onPress={guardar}
           disabled={guardando}
         >
@@ -149,17 +151,17 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  container: { flex: 1, backgroundColor: '#f5f6fa' },
+  container: { flex: 1 },
   content: { padding: 16 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1a2b4c', marginBottom: 6, marginTop: 8 },
+  label: { fontSize: 14, fontWeight: '600', marginBottom: 6, marginTop: 8 },
   input: {
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+    borderWidth: 1, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 15
   },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   buscarRow: { flexDirection: 'row', gap: 8 },
   inputBuscar: {
-    flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+    flex: 1, borderWidth: 1, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 15
   },
   btnBuscar: {
@@ -167,7 +169,7 @@ const styles = StyleSheet.create({
   },
   btnBuscarText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   lista: {
-    backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#ddd',
+    borderRadius: 8, borderWidth: 1,
     marginTop: 6, maxHeight: 220
   },
   itemCliente: {
@@ -176,14 +178,14 @@ const styles = StyleSheet.create({
   itemClienteNombre: { fontSize: 14, fontWeight: '600', color: '#222' },
   itemClienteCod: { fontSize: 12, color: '#888', marginTop: 2 },
   clienteElegido: {
-    backgroundColor: '#eef3fb', borderRadius: 8, padding: 12, flexDirection: 'row',
+    borderRadius: 8, padding: 12, flexDirection: 'row',
     justifyContent: 'space-between', alignItems: 'center'
   },
-  clienteElegidoNombre: { fontSize: 14, fontWeight: '700', color: '#1a2b4c', flex: 1 },
-  cambiar: { color: '#2980b9', fontSize: 13, fontWeight: '700' },
-  hint: { fontSize: 12, color: '#888', marginTop: 12 },
+  clienteElegidoNombre: { fontSize: 14, fontWeight: '700', flex: 1 },
+  cambiar: { fontSize: 13, fontWeight: '700' },
+  hint: { fontSize: 12, marginTop: 12 },
   btnGuardar: {
-    backgroundColor: '#27ae60', borderRadius: 10, paddingVertical: 14,
+    borderRadius: 10, paddingVertical: 14,
     alignItems: 'center', marginTop: 18
   },
   btnDisabled: { opacity: 0.6 },

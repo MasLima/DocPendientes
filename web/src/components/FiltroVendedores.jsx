@@ -84,7 +84,7 @@ export default function FiltroVendedores({ token, seleccionados, onCambio }) {
         }}
         onClick={() => (abierto ? setAbierto(false) : abrir())}
       >
-        <PeopleIcon size={16} />
+        <PeopleIcon size={18} />
         {seleccionados && seleccionados.length > 0
           ? `Vendedores (${seleccionados.length})`
           : 'Filtrar por vendedor'}

@@ -92,15 +92,13 @@ export default function Exportar({ nombreArchivo, columnas, filas, titulo, info,
   return (
     <div style={{ display: 'flex', gap: 8 }}>
       <button
-        className="btn"
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--verde)' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, borderRadius: 6, border: 'none', background: 'var(--verde)', color: '#fff', cursor: 'pointer', fontWeight: 600 }}
         onClick={() => exportarExcel(nombreArchivo, columnas, filas, titulo, info)}
       >
         <ExcelIcon size={18} /> Excel
       </button>
       <button
-        className="btn"
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#c0392b' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, borderRadius: 6, border: 'none', background: '#c0392b', color: '#fff', cursor: 'pointer', fontWeight: 600 }}
         onClick={() => exportarPDF(nombreArchivo, columnas, filas, titulo, info, imagenUrl)}
       >
         <PdfIcon size={18} /> PDF

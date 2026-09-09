@@ -18,6 +18,7 @@ export default function Layout() {
   if (puede('articulos.ver')) items.push({ ruta: '/articulos', texto: 'Articulos' });
   if (puede('reportes.saldos')) items.push({ ruta: '/reportes', texto: 'Reportes' });
   if (puede('incidencias.ver')) items.push({ ruta: '/incidencias', texto: 'Incidencias' });
+  if (puede('whatsapp.ver') || puede('clientes.ver')) items.push({ ruta: '/whatsapp', texto: 'WhatsApp' });
   if (puede('sync.ejecutar') || puede('config.usuarios')) {
     items.push({ ruta: '/configuracion', texto: 'Configuración' });
   }

@@ -54,7 +54,7 @@ export default function LoginScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[styles.button, { backgroundColor: tema.celeste }, loading && styles.buttonDisabled]}
           onPress={onLogin}
           disabled={loading}
         >
@@ -70,8 +70,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#f5f6fa'
+    paddingHorizontal: 24
   },
   card: {
     width: '100%',
@@ -80,17 +79,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 24,
     paddingVertical: 28,
-    // Sombra sutil en web
     ...Platform.select({
       web: { boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }
     })
   },
-  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', color: '#1a2b4c' },
-  subtitle: { fontSize: 13, textAlign: 'center', color: '#666', marginBottom: 26, marginTop: 4 },
+  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center' },
+  subtitle: { fontSize: 13, textAlign: 'center', marginBottom: 26, marginTop: 4 },
   input: {
-    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -98,7 +94,6 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   button: {
-    backgroundColor: '#1a2b4c',
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: 'center',

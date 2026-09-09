@@ -133,7 +133,26 @@ router.get('/:codigo', async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Articulo no encontrado' });
     }
-    res.json(rows[0]);
+    const art = rows[0];
+
+    let precios = [];
+    try {
+      const [preciosRows] = await pool.query(
+        `SELECT ven_cota, ven_pigv
+         FROM articulos_precios
+         WHERE ven_item = ?`,
+        [req.params.codigo]
+      );
+      precios = preciosRows;
+    } catch {}
+
+    art.precios = precios.map(p => ({
+      ven_cota: p.ven_cota,
+      ven_pigv: p.ven_pigv,
+      precio_con_igv: Number(p.ven_pigv) || 0
+    }));
+
+    res.json(art);
   } catch (err) {
     console.error('Error en GET /articulos/:codigo:', err.message);
     res.status(500).json({ error: 'Error interno del servidor', detalle: err.message });

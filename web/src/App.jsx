@@ -18,6 +18,7 @@ import ConfigUsuariosScreen from './screens/ConfigUsuariosScreen';
 import ConfigPerfilesScreen from './screens/ConfigPerfilesScreen';
 import ArticulosScreen from './screens/ArticulosScreen';
 import ArticuloDetalleScreen from './screens/ArticuloDetalleScreen';
+import WhatsAppScreen from './screens/WhatsAppScreen';
 
 function ThemedApp() {
   const { tema } = useTema();
@@ -53,6 +54,7 @@ function ThemedApp() {
           <Route path="/configuracion/perfiles" element={<ConfigPerfilesScreen />} />
           <Route path="/articulos" element={<ArticulosScreen />} />
           <Route path="/articulos/:codigo" element={<ArticuloDetalleScreen />} />
+          <Route path="/whatsapp" element={<WhatsAppScreen />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

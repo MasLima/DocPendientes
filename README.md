@@ -20,6 +20,7 @@ incidencias de visita**, con dos frontends contra la misma API:
 | Despliegue automático (GitHub Actions) | [docs/07_despliegue.md](docs/07_despliegue.md) |
 | Roles, permisos, dashboard y configuración | [docs/08_roles_permisos.md](docs/08_roles_permisos.md) |
 | Desplegar en producción | [docs/05_produccion.md](docs/05_produccion.md) |
+| Build de APK y descarga | [docs/11_apk_build.md](docs/11_apk_build.md) |
 
 ## Puesta en marcha en 5 pasos
 
@@ -64,11 +65,12 @@ Login de prueba: **admin01 / 123456** · **emplead01 / 123456** · **vendedor01 
   detalle y documentos, reportes, incidencias con filtros, configuración;
   menú por permisos (empleados/admin/vendedores con interfaz de escritorio)
 - ✅ **App móvil de campo** (`movil/`, Expo): flujo del vendedor para registrar
-  visitas/incidencias; tema claro/oscuro; calendarios en filtros
+  visitas/incidencias; tema claro/oscuro; calendarios en filtros; envío WhatsApp
+  con artículos; incidencias inline; archivo adjunto
+- ✅ **APK compilado localmente** (arm64-v8a, 34 MB), descargable desde el servidor
 - ✅ Documentación completa en `docs/`
 - ✅ Repositorio en GitHub y workflow de despliegue automático configurado
 - ⏳ Envío de incidencias al ERP (requiere escritura en `mcoinci010/020`)
-- ⏳ Compilación APK/IPA para producción
 
 ## Nota sobre los scripts `sql\01_02_03`
 

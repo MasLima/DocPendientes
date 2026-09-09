@@ -111,7 +111,7 @@ export default function ConfigPerfilesScreen() {
 
           {mensaje && <div style={{ color: 'var(--verde)', fontSize: 13, marginBottom: 10 }}>{mensaje}</div>}
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-aceptar btn-accion" onClick={guardar} disabled={guardando}><CheckIcon size={22} /> {guardando ? 'Guardando...' : 'Guardar cambios'}</button>
+            <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff' }} onClick={guardar} disabled={guardando}><CheckIcon size={20} /> {guardando ? 'Guardando...' : 'Guardar cambios'}</button>
             <button className="btn btn-cancelar btn-accion" onClick={() => setPerfilSel(null)}><CloseIcon size={20} /> Cancelar</button>
           </div>
         </>

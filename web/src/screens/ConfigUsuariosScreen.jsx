@@ -146,7 +146,7 @@ export default function ConfigUsuariosScreen() {
           {error && <div style={{ color: 'var(--rojo)', fontSize: 13, marginBottom: 12 }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-aceptar btn-accion" type="submit"><CheckIcon size={22} /> {editando ? 'Guardar cambios' : 'Crear usuario'}</button>
+            <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff' }} type="submit"><CheckIcon size={20} /> {editando ? 'Guardar cambios' : 'Crear usuario'}</button>
             <button className="btn btn-cancelar btn-accion" type="button" onClick={() => setVerForm(false)}><CloseIcon size={20} /> Cancelar</button>
           </div>
         </form>
@@ -167,7 +167,7 @@ export default function ConfigUsuariosScreen() {
               filas={usuarios.map((u) => [u.use_logi, `${u.use_name || ''} ${u.use_apel || ''}`.trim(), u.rol, `${u.ter_cote}${u.vendedor_nombre ? ` (${u.vendedor_nombre})` : ''}`, u.activo ? 'Activo' : 'Inactivo'])}
             />
           )}
-          <button className="btn btn-adicionar btn-accion" onClick={abrirNuevo}><PlusIcon size={20} /> Nuevo usuario</button>
+          <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff' }} onClick={abrirNuevo}><PlusIcon size={20} /> Nuevo usuario</button>
         </div>
       </div>
 

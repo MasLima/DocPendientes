@@ -210,7 +210,7 @@ export default function ClientesScreen() {
   const tabBtn = (clave, icono, label) => (
     <button
       className="btn btn-ghost"
-      style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === clave ? 'var(--primario)' : 'var(--tarjeta)', color: pestana === clave ? '#fff' : 'var(--texto)', border: '1px solid var(--borde)' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === clave ? 'var(--active)' : 'var(--tarjeta)', color: pestana === clave ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
       onClick={() => setPestana(clave)}
     >
       {icono} {label}

@@ -5,6 +5,9 @@ node_modules/
 api/.env
 api/*.log
 api/npm-debug.*
+api/.wwebjs_cache/
+api/whatsapp-session/
+api/uploads/
 
 # ===== Frontend (movil) =====
 movil/node_modules/
@@ -14,11 +17,19 @@ movil/web-build/
 movil/expo.log
 movil/web.log
 movil/.metro-health-check*
+movil/android/
+movil/.easignore
 
 # ===== Frontend web =====
 web/node_modules/
 web/dist/
 web/*.log
+
+# ===== Build artifacts =====
+apk/
+Cobranza-v1.0.0.apk
+build-android.ps1
+gradle-build.log
 
 # ===== Base de datos / utilidades =====
 *.sql.bak

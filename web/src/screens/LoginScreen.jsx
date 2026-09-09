@@ -83,7 +83,7 @@ export default function LoginScreen() {
           </div>
         )}
 
-        <button className="btn" type="submit" disabled={loading} style={{ width: '100%', padding: 14, fontSize: 16 }}>
+        <button className="btn" type="submit" disabled={loading} style={{ width: '100%', padding: 14, fontSize: 16, background: 'var(--celeste)', color: '#fff' }}>
           {loading ? 'Ingresando...' : 'Ingresar'}
         </button>
       </form>
