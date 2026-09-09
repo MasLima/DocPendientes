@@ -153,7 +153,14 @@ http://190.12.91.41:3000/api/download/apk
 
 Task Scheduler task "Cobranza Sync" runs daily at 1:00 AM:
 ```powershell
+# Create task (run on server once):
+powershell -ExecutionPolicy Bypass -File C:\OpenCode\DocPendientes\create-sync-task.ps1
+
+# Or manually:
 schtasks /create /tn "Cobranza Sync" /tr "cmd /c cd /d C:\OpenCode\DocPendientes\api && node src/sync.js >> sync.log 2>&1" /sc daily /st 01:00 /ru SYSTEM
+
+# Verify: Get-ScheduledTask -TaskName "Cobranza Sync"
+# Run now: Start-ScheduledTask -TaskName "Cobranza Sync"
 ```
 
 ## Important Notes
