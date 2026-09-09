@@ -376,9 +376,6 @@ export default function ArticuloDetalleScreen({ route, navigation }) {
               </View>
               <View style={styles.camposGrid}>
                 <Campo label="Fecha Últ. Compra" valor={fmtFecha(art.fecha_compra)} />
-                <Campo label="Importe Compra" valor={art.importe_compra != null ? `S/ ${fmtNum3(art.importe_compra)}` : '-'} />
-              </View>
-              <View style={styles.camposGrid}>
                 <Campo label="Fecha Últ. Venta" valor={fmtFecha(art.ite_feuv)} />
               </View>
             </View>
@@ -457,7 +454,7 @@ const styles = StyleSheet.create({
   img: { width: '100%', height: 250, borderRadius: 8 },
   imgName: { textAlign: 'center', fontSize: 11, fontFamily: 'monospace', marginTop: 6 },
   sinImg: { borderRadius: 10, borderWidth: 1, height: 150, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  camposGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  camposGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 },
   campo: { flex: 1, minWidth: '45%', borderRadius: 8, padding: 10 },
   campoLabel: { fontSize: 11, fontWeight: '600' },
   campoValor: { fontSize: 13, fontWeight: '700', marginTop: 2 },
