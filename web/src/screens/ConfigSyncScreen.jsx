@@ -10,6 +10,7 @@ const PROCESOS = [
   { clave: 'tipos', etiqueta: 'Tipos de documento' },
   { clave: 'bancos', etiqueta: 'Bancos' },
   { clave: 'documentos', etiqueta: 'Documentos pendientes' },
+  { clave: 'incidencias', etiqueta: 'Incidencias (solo ERP → App)' },
   { clave: 'usuarios', etiqueta: 'Usuarios' },
   { clave: 'articulos', etiqueta: 'Artículos' },
   { clave: 'compras', etiqueta: 'Compras (fecha e importe)' },
@@ -57,6 +58,7 @@ export default function ConfigSyncScreen() {
       if (res.tipos) partes.push(`Tipos: ${res.tipos.tipos}`);
       if (res.bancos) partes.push(`Bancos: ${res.bancos.bancos}`);
       if (res.documentos) partes.push(`Documentos: ${res.documentos.documentos}`);
+      if (res.incidencias) partes.push(`Incidencias nuevas: ${res.incidencias.incidencias} | Actualizadas: ${res.incidencias.actualizadas}`);
       if (res.usuarios) partes.push(`Usuarios: ${res.usuarios.usuarios} (nuevos: ${res.usuarios.creados}, actualizados: ${res.usuarios.actualizados}, desactivados: ${res.usuarios.desactivados})`);
       if (res.articulos) partes.push(`Artículos: ${res.articulos.articulos}`);
       if (res.compras) partes.push(`Compras: ${res.compras.compras}`);

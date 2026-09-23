@@ -76,6 +76,7 @@ User: coloma / Coloma#Integrator
 - **Flujo**: Vendedor registra incidencia en la app → queda local → se ve en web/app
 - **Tabla `sincronizada`**: Solo para referencia, NO se usa para envío al ERP
 - **Todas las incidencias** (ERP + app/web) se muestran en la interfaz
+- **Incluida en tarea programada** (1:00 AM) y sincronización manual
 
 ## Deploy Process
 

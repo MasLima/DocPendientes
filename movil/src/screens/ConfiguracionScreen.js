@@ -92,6 +92,8 @@ export function ConfigSyncScreen() {
         `Vendedores: ${r.resultados?.maestros?.vendedores}\n` +
         `Clientes: ${r.resultados?.maestros?.clientes}\n` +
         `Documentos pendientes: ${r.resultados?.documentos?.documentos}\n` +
+        `Incidencias nuevas: ${r.resultados?.incidencias?.incidencias}\n` +
+        `Incidencias actualizadas: ${r.resultados?.incidencias?.actualizadas}\n` +
         `Compras actualizadas: ${r.resultados?.compras?.compras}`);
       cargarLog();
     } catch (err) {
@@ -105,8 +107,8 @@ export function ConfigSyncScreen() {
     <ScrollView style={[styles.panel, { backgroundColor: tema.fondo }]}>
       <Text style={[styles.parrafo, { color: tema.textoSuave }]}>
         Sincroniza los datos desde el ERP: maestros (vendedores y clientes),
-        documentos pendientes, artículos y compras. Puedes ejecutarla en cualquier
-        momento, además de la programada.
+        documentos pendientes, incidencias (solo ERP → App), artículos y compras.
+        Puedes ejecutarla en cualquier momento, además de la programada.
       </Text>
 
       <TouchableOpacity

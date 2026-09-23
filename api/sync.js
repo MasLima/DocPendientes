@@ -9,6 +9,7 @@ async function main() {
     console.log(`  Vendedores: ${r.maestros.vendedores}`);
     console.log(`  Clientes:   ${r.maestros.clientes}`);
     console.log(`  Pendientes: ${r.documentos.documentos}`);
+    if (r.incidencias) console.log(`  Incidencias nuevas: ${r.incidencias.incidencias} | Actualizadas: ${r.incidencias.actualizadas}`);
     if (r.articulos) console.log(`  Articulos: ${r.articulos.articulos}`);
     if (r.compras) console.log(`  Compras: ${r.compras.compras}`);
     if (r.precios) console.log(`  Precios: ${r.precios.precios}`);
