@@ -70,6 +70,13 @@ User: coloma / Coloma#Integrator
 - Labels: `101`=02 PIEZAS 10 (S/), `102`=03 SELLADO (S/), `106`=04 DOLARES (US$)
 - Synced with 4 decimals, displayed with 3 decimals
 
+### Incidencias Sync
+- **Solo ERP → App**: Las incidencias se sincronizan UNIDIRECCIONALMENTE desde el ERP
+- **NO se sincronizan de App → ERP** (la función está desactivada en el orquestador)
+- **Flujo**: Vendedor registra incidencia en la app → queda local → se ve en web/app
+- **Tabla `sincronizada`**: Solo para referencia, NO se usa para envío al ERP
+- **Todas las incidencias** (ERP + app/web) se muestran en la interfaz
+
 ## Deploy Process
 
 ### Manual Deploy (current)

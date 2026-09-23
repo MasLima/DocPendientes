@@ -635,17 +635,16 @@ const FUNCIONES_COMPLETO = {
 // - 'procesos': array de nombres de procesos a ejecutar. Si es null o vacio, ejecuta todos.
 // - 'modo': 'parcial' (REPLACE INTO, default) o 'completo' (DELETE + INSERT).
 //   El modo completo solo aplica a tablas catalogo (maestros, condiciones, tipos, bancos, articulos).
-//   Documentos siempre es completo, incidencias/usuarios siempre son incrementales.
+//   Documentos siempre es completo, usuarios siempre es incremental.
+//   INCIDENCIAS: NO se sincronizan en este orquestador. Se manejan por separado.
 async function syncCompleto(procesos = null, modo = 'parcial') {
-  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'compras', 'precios'];
-  const seleccion = procesos && procesos.length ? procesos : validos;
+  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'usuarios', 'articulos', 'compras', 'precios'];
+  const seleccion = procesos && procesos.length ? procesos.filter(p => validos.includes(p)) : validos;
   const resultados = {};
 
   for (const proc of seleccion) {
     if (proc === 'documentos') {
       resultados.documentos = await syncDocumentos();
-    } else if (proc === 'incidencias') {
-      resultados.incidencias = await syncIncidencias();
     } else if (proc === 'usuarios') {
       resultados.usuarios = await syncUsuarios();
     } else if (modo === 'completo' && FUNCIONES_COMPLETO[proc]) {
