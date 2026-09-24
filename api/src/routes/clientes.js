@@ -215,6 +215,78 @@ router.get('/resumen', async (req, res) => {
   }
 });
 
+// GET /api/clientes/vencimientos
+// Agrupa documentos por rango de vencimiento segun config_vencimientos.
+// Retorna por cada rango: documentos, cantidad, saldo, y si ya fue enviado.
+router.get('/vencimientos', async (req, res) => {
+  try {
+    const { where, params } = filtroClientes(req, 'c');
+    const whereSQL = where.length > 0 ? `AND ${where.join(' AND ')}` : '';
+
+    const [rangos] = await pool.query(
+      'SELECT * FROM config_vencimientos WHERE activo = 1 ORDER BY orden'
+    );
+    if (rangos.length === 0) return res.json({ rangos: {}, total: { cantidad: 0, saldo_pen: 0 } });
+
+    const filtro = req.query.vendedor ? ' AND d.vendedor_codigo = ?' : '';
+    const filtroParams = req.query.vendedor ? [req.query.vendedor] : [];
+
+    const [docs] = await pool.query(
+      `SELECT d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums,
+              d.cob_cote, c.ter_deno AS cliente_nombre, c.ter_cell, c.ter_fono,
+              d.fecha_vencimiento, d.saldo, d.cob_como,
+              DATEDIFF(CURDATE(), d.fecha_vencimiento) AS dias_vencido
+       FROM vw_documentos_pendientes d
+       INNER JOIN clientes c ON c.ter_cote = d.cob_cote
+       WHERE 1=1 ${whereSQL} ${filtro}
+       ORDER BY d.cob_cote, d.fecha_vencimiento`,
+      [...params, ...filtroParams]
+    );
+
+    const [enviados] = await pool.query(
+      'SELECT DISTINCT cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums FROM whatsapp_envios'
+    );
+    const enviadosSet = new Set(
+      enviados.map(e => `${e.cob_tivo}|${e.cob_nuvo}|${e.cob_codo}|${e.cob_seri}|${e.cob_nums}`)
+    );
+
+    const resultado = {};
+    let totalCant = 0, totalSaldo = 0;
+
+    for (const r of rangos) {
+      const docsRango = docs.filter(d => {
+        const dv = d.dias_vencido;
+        if (r.dias_desde === r.dias_hasta) return dv === r.dias_desde;
+        return dv >= r.dias_desde && dv <= r.dias_hasta;
+      }).map(d => ({
+        ...d,
+        enviado: enviadosSet.has(`${d.cob_tivo}|${d.cob_nuvo}|${d.cob_codo}|${d.cob_seri}|${d.cob_nums}`)
+      }));
+
+      const saldo = docsRango.reduce((s, d) => s + Number(d.saldo), 0);
+      totalCant += docsRango.length;
+      totalSaldo += saldo;
+
+      resultado[r.nombre] = {
+        id: r.id,
+        etiqueta: r.etiqueta,
+        dias_desde: r.dias_desde,
+        dias_hasta: r.dias_hasta,
+        orden: r.orden,
+        mensaje_template: r.mensaje_template,
+        cantidad: docsRango.length,
+        saldo_pen: saldo,
+        documentos: docsRango
+      };
+    }
+
+    res.json({ rangos: resultado, total: { cantidad: totalCant, saldo_pen: totalSaldo } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Detalle de un cliente con su resumen de saldos
 router.get('/:codigo', async (req, res) => {
   try {
@@ -268,78 +340,6 @@ router.get('/:codigo', async (req, res) => {
     );
 
     res.json({ cliente: cli[0], resumen, documentos: docs, ultima_incidencia: ultimaInc[0] || null });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// GET /api/clientes/vencimientos
-// Agrupa documentos por rango de vencimiento segun config_vencimientos.
-// Retorna por cada rango: documentos, cantidad, saldo, y si ya fue enviado.
-router.get('/vencimientos', async (req, res) => {
-  try {
-    const { where, params } = filtroClientes(req, 'c');
-    const whereSQL = where.length > 0 ? `AND ${where.join(' AND ')}` : '';
-
-    const [rangos] = await pool.query(
-      'SELECT * FROM config_vencimientos WHERE activo = 1 ORDER BY orden'
-    );
-    if (rangos.length === 0) return res.json({ rangos: {}, total: { cantidad: 0, saldo_pen: 0 } });
-
-    const filtro = req.query.vendedor ? ' AND d.cob_core = ?' : '';
-    const filtroParams = req.query.vendedor ? [req.query.vendedor] : [];
-
-    const [docs] = await pool.query(
-      `SELECT d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums,
-              d.cob_cote, c.ter_deno AS cliente_nombre, c.ter_cell, c.ter_fono,
-              d.fecha_vencimiento, d.saldo, d.cob_como,
-              DATEDIFF(CURDATE(), d.fecha_vencimiento) AS dias_vencido
-       FROM vw_documentos_pendientes d
-       INNER JOIN clientes c ON c.ter_cote = d.cob_cote
-       WHERE 1=1 ${whereSQL} ${filtro}
-       ORDER BY d.cob_cote, d.fecha_vencimiento`,
-      [...params, ...filtroParams]
-    );
-
-    const [enviados] = await pool.query(
-      'SELECT DISTINCT cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums FROM whatsapp_envios'
-    );
-    const enviadosSet = new Set(
-      enviados.map(e => `${e.cob_tivo}|${e.cob_nuvo}|${e.cob_codo}|${e.cob_seri}|${e.cob_nums}`)
-    );
-
-    const resultado = {};
-    let totalCant = 0, totalSaldo = 0;
-
-    for (const r of rangos) {
-      const docsRango = docs.filter(d => {
-        const dv = d.dias_vencido;
-        if (r.dias_desde === r.dias_hasta) return dv === r.dias_desde;
-        return dv >= r.dias_desde && dv <= r.dias_hasta;
-      }).map(d => ({
-        ...d,
-        enviado: enviadosSet.has(`${d.cob_tivo}|${d.cob_nuvo}|${d.cob_codo}|${d.cob_seri}|${d.cob_nums}`)
-      }));
-
-      const saldo = docsRango.reduce((s, d) => s + Number(d.saldo), 0);
-      totalCant += docsRango.length;
-      totalSaldo += saldo;
-
-      resultado[r.nombre] = {
-        id: r.id,
-        etiqueta: r.etiqueta,
-        dias_desde: r.dias_desde,
-        dias_hasta: r.dias_hasta,
-        orden: r.orden,
-        mensaje_template: r.mensaje_template,
-        cantidad: docsRango.length,
-        saldo_pen: saldo,
-        documentos: docsRango
-      };
-    }
-
-    res.json({ rangos: resultado, total: { cantidad: totalCant, saldo_pen: totalSaldo } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error interno del servidor' });
