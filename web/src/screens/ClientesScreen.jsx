@@ -53,6 +53,7 @@ export default function ClientesScreen() {
 
   // Vencimientos
   const [vencimientos, setVencimientos] = useState(null);
+  const [vencError, setVencError] = useState('');
   const [rangoExpandido, setRangoExpandido] = useState(null);
   const [docsSeleccionados, setDocsSeleccionados] = useState([]);
   const [modalEnvio, setModalEnvio] = useState(null); // { cliente, telefono, docs }
@@ -106,12 +107,14 @@ export default function ClientesScreen() {
   // Cargar vencimientos
   const cargarVencimientos = useCallback(async () => {
     try {
+      setVencError('');
       const params = new URLSearchParams();
       if (vendedoresSel.length > 0) params.set('vendedor', vendedoresSel.join(','));
       const data = await apiGet(`/clientes/vencimientos?${params.toString()}`, token);
       setVencimientos(data);
     } catch (err) {
       console.error('Error cargando vencimientos:', err);
+      setVencError(err.message);
     }
   }, [token, vendedoresSel]);
 
@@ -573,12 +576,13 @@ export default function ClientesScreen() {
             <div>
               <VencimientosTab
                 vencimientos={vencimientos}
+                vencError={vencError}
                 rangoExpandido={rangoExpandido}
                 setRangoExpandido={setRangoExpandido}
                 docsSeleccionados={docsSeleccionados}
                 setDocsSeleccionados={setDocsSeleccionados}
                 onEnviarWhatsApp={(cliente, docs) => setModalEnvio({ cliente, docs })}
-                cargando={!vencimientos}
+                cargando={!vencimientos && !vencError}
                 configRangos={configRangos}
                 setModalConfig={setModalConfig}
                 setEditandoRango={setEditandoRango}
@@ -615,10 +619,11 @@ export default function ClientesScreen() {
 }
 
 // ===================== VencimientosTab =====================
-function VencimientosTab({ vencimientos, rangoExpandido, setRangoExpandido, docsSeleccionados, setDocsSeleccionados, onEnviarWhatsApp, cargando, configRangos, setModalConfig, setEditandoRango }) {
+function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpandido, docsSeleccionados, setDocsSeleccionados, onEnviarWhatsApp, cargando, configRangos, setModalConfig, setEditandoRango }) {
   const { token } = useAuth();
 
   if (cargando) return <div className="vacio">Cargando vencimientos...</div>;
+  if (vencError) return <div className="vacio" style={{ color: 'var(--rojo)' }}>Error: {vencError}</div>;
   if (!vencimientos || !vencimientos.rangos) return <div className="vacio">Sin datos de vencimientos</div>;
 
   const { rangos, total } = vencimientos;
