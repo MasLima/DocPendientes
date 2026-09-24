@@ -40,6 +40,7 @@ app.use('/api/sync', auth, require('./routes/sync'));
 app.use('/api/dashboard', auth, require('./routes/dashboard'));
 app.use('/api/articulos', auth, require('./routes/articulos'));
 app.use('/api/whatsapp', auth, require('./routes/whatsapp'));
+app.use('/api/config/vencimientos', auth, require('./routes/configVencimientos'));
 
 app.get('/api/health', async (req, res) => {
   try {

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { apiGet } from '../api/client';
+import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import Exportar from '../components/Exportar';
-import { EyeIcon, DocumentIcon, CalendarIcon, TimeIcon, StatsIcon } from '../components/Iconos';
+import { EyeIcon, DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, SettingsIcon, CheckIcon, CloseIcon, WhatsAppIcon } from '../components/Iconos';
 import CampoBusqueda from '../components/CampoBusqueda';
 import FiltroVendedores from '../components/FiltroVendedores';
 
@@ -51,6 +51,16 @@ export default function ClientesScreen() {
   const [cantRangosAnti, setCantRangosAnti] = useState(4);
   const [tipoRangoAnti, setTipoRangoAnti] = useState('mensual'); // semanal|quincenal|mensual|otro
 
+  // Vencimientos
+  const [vencimientos, setVencimientos] = useState(null);
+  const [rangoExpandido, setRangoExpandido] = useState(null);
+  const [docsSeleccionados, setDocsSeleccionados] = useState([]);
+  const [modalEnvio, setModalEnvio] = useState(null); // { cliente, telefono, docs }
+  const [modalConfig, setModalConfig] = useState(false);
+  const [configRangos, setConfigRangos] = useState([]);
+  const [editandoRango, setEditandoRango] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+
   const seleccionarTipoRango = (tipo) => {
     setTipoRangoAnti(tipo);
     const dias = { semanal: 7, quincenal: 15, mensual: 30 }[tipo];
@@ -92,6 +102,30 @@ export default function ClientesScreen() {
 
   useEffect(() => { cargar(); }, [cargar]);
   useEffect(() => { cargarResumen(); }, [cargarResumen]);
+
+  // Cargar vencimientos
+  const cargarVencimientos = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (vendedoresSel.length > 0) params.set('vendedor', vendedoresSel.join(','));
+      const data = await apiGet(`/clientes/vencimientos?${params.toString()}`, token);
+      setVencimientos(data);
+    } catch (err) {
+      console.error('Error cargando vencimientos:', err);
+    }
+  }, [token, vendedoresSel]);
+
+  // Cargar config de rangos
+  const cargarConfigRangos = useCallback(async () => {
+    try {
+      const data = await apiGet('/config/vencimientos', token);
+      setConfigRangos(data);
+    } catch (err) {
+      console.error('Error cargando config:', err);
+    }
+  }, [token]);
+
+  useEffect(() => { if (pestana === 'vencimientos') { cargarVencimientos(); cargarConfigRangos(); } }, [pestana, cargarVencimientos, cargarConfigRangos]);
 
   // Filtrado en memoria (rapido incluso con 14k filas gracias a useMemo).
   const filtrados = useMemo(() => {
@@ -259,6 +293,7 @@ export default function ClientesScreen() {
         {tabBtn('pendientes', <DocumentIcon size={18} />, 'Documentos Pendientes')}
         {tabBtn('cronograma', <CalendarIcon size={18} />, 'Cronograma de Vencimientos')}
         {tabBtn('antiguedad', <TimeIcon size={18} />, 'Antigüedad de la Deuda')}
+        {tabBtn('vencimientos', <WhatsAppIcon size={18} />, 'Vencimientos')}
         {tabBtn('resumen', <StatsIcon size={18} />, 'Resumen')}
       </div>
 
@@ -533,8 +568,493 @@ export default function ClientesScreen() {
               </div>
             </div>
           )}
+
+          {pestana === 'vencimientos' && (
+            <div>
+              <VencimientosTab
+                vencimientos={vencimientos}
+                rangoExpandido={rangoExpandido}
+                setRangoExpandido={setRangoExpandido}
+                docsSeleccionados={docsSeleccionados}
+                setDocsSeleccionados={setDocsSeleccionados}
+                onEnviarWhatsApp={(cliente, docs) => setModalEnvio({ cliente, docs })}
+                cargando={!vencimientos}
+                configRangos={configRangos}
+                setModalConfig={setModalConfig}
+                setEditandoRango={setEditandoRango}
+              />
+            </div>
+          )}
         </>
       )}
+
+      {modalEnvio && (
+        <ModalEnvioVencimiento
+          cliente={modalEnvio.cliente}
+          documentos={modalEnvio.docs}
+          rango={rangoExpandido}
+          onClose={() => setModalEnvio(null)}
+          onEnviado={() => { setModalEnvio(null); setDocsSeleccionados([]); cargarVencimientos(); }}
+          token={token}
+          enviando={enviando}
+          setEnviando={setEnviando}
+        />
+      )}
+
+      {modalConfig && (
+        <ModalConfigVencimientos
+          rangos={configRangos}
+          editandoRango={editandoRango}
+          setEditandoRango={setEditandoRango}
+          onClose={() => { setModalConfig(false); setEditandoRango(null); cargarConfigRangos(); }}
+          token={token}
+        />
+      )}
+    </div>
+  );
+}
+
+// ===================== VencimientosTab =====================
+function VencimientosTab({ vencimientos, rangoExpandido, setRangoExpandido, docsSeleccionados, setDocsSeleccionados, onEnviarWhatsApp, cargando, configRangos, setModalConfig, setEditandoRango }) {
+  const { token } = useAuth();
+
+  if (cargando) return <div className="vacio">Cargando vencimientos...</div>;
+  if (!vencimientos || !vencimientos.rangos) return <div className="vacio">Sin datos de vencimientos</div>;
+
+  const { rangos, total } = vencimientos;
+  const rangoKeys = Object.keys(rangos);
+
+  const toggleRango = (nombre) => {
+    setRangoExpandido(rangoExpandido === nombre ? null : nombre);
+    setDocsSeleccionados([]);
+  };
+
+  const toggleDoc = (key) => {
+    setDocsSeleccionados(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const seleccionarTodos = (nombre) => {
+    const docs = rangos[nombre]?.documentos || [];
+    const keys = docs.map(d => `${d.cob_tivo}|${d.cob_nuvo}|${d.cob_codo}|${d.cob_seri}|${d.cob_nums}`);
+    const todosMarcados = keys.every(k => docsSeleccionados.includes(k));
+    setDocsSeleccionados(todosMarcados ? docsSeleccionados.filter(k => !keys.includes(k)) : [...docsSeleccionados, ...keys.filter(k => !docsSeleccionados.includes(k))]);
+  };
+
+  const agruparPorCliente = (docs) => {
+    const map = {};
+    docs.forEach(d => {
+      if (!map[d.ter_cote]) map[d.ter_cote] = { nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
+      map[d.ter_cote].documentos.push(d);
+    });
+    return Object.entries(map);
+  };
+
+  const seleccionadosDelRango = rangoExpandido
+    ? (rangos[rangoExpandido]?.documentos || []).filter(d => docsSeleccionados.includes(`${d.cob_tivo}|${d.cob_nuvo}|${d.cob_codo}|${d.cob_seri}|${d.cob_nums}`))
+    : [];
+
+  const clientesSeleccionados = seleccionadosDelRango.reduce((acc, d) => {
+    if (!acc[d.ter_cote]) acc[d.ter_cote] = { nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
+    acc[d.ter_cote].documentos.push(d);
+    return acc;
+  }, {});
+
+  const colorPorRango = (desde, hasta) => {
+    if (hasta < 0) return 'var(--celeste)';
+    if (desde === 0) return 'var(--warning)';
+    return 'var(--rojo)';
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div className="mutado">
+          Total: {total.cantidad} documentos · S/ {fmt(total.saldo_pen)}
+        </div>
+        <button
+          className="btn btn-ghost"
+          style={{ border: '1px solid var(--borde)', display: 'flex', alignItems: 'center', gap: 6, height: 36 }}
+          onClick={() => setModalConfig(true)}
+        >
+          <SettingsIcon size={16} /> Configurar rangos
+        </button>
+      </div>
+
+      {rangoKeys.length === 0 && <div className="vacio">No hay rangos de vencimiento configurados</div>}
+
+      {rangoKeys.map(nombre => {
+        const r = rangos[nombre];
+        const expandido = rangoExpandido === nombre;
+        const docs = r.documentos || [];
+        const enviadosCount = docs.filter(d => d.enviado).length;
+
+        return (
+          <div key={nombre} style={{ marginBottom: 10 }}>
+            <div
+              onClick={() => toggleRango(nombre)}
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '12px 16px', borderRadius: 8, cursor: 'pointer',
+                background: expandido ? 'var(--active)' : 'var(--tarjeta)',
+                border: `1px solid ${expandido ? colorPorRango(r.dias_desde, r.dias_hasta) : 'var(--borde)'}`,
+                transition: 'all 0.2s'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: colorPorRango(r.dias_desde, r.dias_hasta) }} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{r.etiqueta}</div>
+                  <div className="mutado" style={{ fontSize: 12 }}>
+                    {r.dias_desde === r.dias_hasta
+                      ? `Día ${r.dias_desde}`
+                      : `${r.dias_desde} a ${r.dias_hasta} días`
+                    }
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 700, fontSize: 18 }}>{r.cantidad}</div>
+                  <div className="mutado" style={{ fontSize: 12 }}>S/ {fmt(r.saldo_pen)}</div>
+                </div>
+                {enviadosCount > 0 && (
+                  <span style={{ background: '#d5f5e3', color: '#1e8449', padding: '2px 8px', borderRadius: 12, fontSize: 12, fontWeight: 700 }}>
+                    ✓ {enviadosCount} enviados
+                  </span>
+                )}
+                <span style={{ fontSize: 18, color: 'var(--mutado)', transition: 'transform 0.2s', transform: expandido ? 'rotate(180deg)' : 'rotate(0)' }}>▾</span>
+              </div>
+            </div>
+
+            {expandido && docs.length > 0 && (
+              <div style={{ marginTop: 4, border: '1px solid var(--borde)', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--fondo)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={docs.every(d => docsSeleccionados.includes(`${d.cob_tivo}|${d.cob_nuvo}|${d.cob_codo}|${d.cob_seri}|${d.cob_nums}`))}
+                      onChange={() => seleccionarTodos(nombre)}
+                    />
+                    Seleccionar todos ({docs.length})
+                  </label>
+                  {docsSeleccionados.length > 0 && (
+                    <button
+                      className="btn"
+                      style={{ background: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', gap: 6, height: 34, fontSize: 13 }}
+                      onClick={() => {
+                        const clientes = {};
+                        seleccionadosDelRango.forEach(d => {
+                          if (!clientes[d.ter_cote]) clientes[d.ter_cote] = { nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
+                          clientes[d.ter_cote].documentos.push(d);
+                        });
+                        Object.entries(clientes).forEach(([terCote, info]) => {
+                          onEnviarWhatsApp({ ter_cote: terCote, ...info }, info.documentos);
+                        });
+                      }}
+                    >
+                      Enviar WhatsApp ({docsSeleccionados.length} docs, {Object.keys(clientesSeleccionados).length} clientes)
+                    </button>
+                  )}
+                </div>
+
+                <table className="tabla">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 30 }}></th>
+                      <th>Documento</th>
+                      <th>Cliente</th>
+                      <th>Teléfono</th>
+                      <th>Vence</th>
+                      <th>Días</th>
+                      <th>Saldo</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {docs.map(d => {
+                      const key = `${d.cob_tivo}|${d.cob_nuvo}|${d.cob_codo}|${d.cob_seri}|${d.cob_nums}`;
+                      const marcado = docsSeleccionados.includes(key);
+                      return (
+                        <tr key={key} style={{ opacity: d.enviado ? 0.5 : 1, background: marcado ? 'var(--active)' : undefined }}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={marcado}
+                              disabled={d.enviado}
+                              onChange={() => toggleDoc(key)}
+                            />
+                          </td>
+                          <td className="mono" style={{ fontWeight: 600 }}>{d.cob_codo}-{d.cob_seri}-{d.cob_nums}</td>
+                          <td style={{ fontWeight: 600 }}>{d.cliente_nombre}</td>
+                          <td className="mono">{d.ter_cell || d.ter_fono || '-'}</td>
+                          <td className="mono">{d.fecha_vencimiento ? fmtFecha(new Date(d.fecha_vencimiento)) : '-'}</td>
+                          <td className="mono">{d.dias_vencido}</td>
+                          <td className="mono" style={{ color: 'var(--verde)', fontWeight: 700 }}>S/ {fmt(d.saldo)}</td>
+                          <td>
+                            {d.enviado
+                              ? <span style={{ color: '#1e8449', fontWeight: 700, fontSize: 12 }}>✓ Enviado</span>
+                              : <span style={{ color: 'var(--mutado)', fontSize: 12 }}>Pendiente</span>
+                            }
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {expandido && docs.length === 0 && (
+              <div className="vacio" style={{ marginTop: 8 }}>No hay documentos en este rango</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ===================== ModalEnvioVencimiento =====================
+function ModalEnvioVencimiento({ cliente, documentos, rango, onClose, onEnviado, token, enviando, setEnviando }) {
+  const [telefono, setTelefono] = useState(cliente.telefono || '');
+  const [enviados, setEnviados] = useState(null);
+
+  const total = documentos.reduce((s, d) => s + Number(d.saldo), 0);
+
+  const mensajePreview = useMemo(() => {
+    const docLineas = documentos.map(d => {
+      const fecha = d.fecha_vencimiento ? new Date(d.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
+      const dias = Math.abs(d.dias_vencido);
+      return `• ${d.cob_codo}-${d.cob_seri}-${d.cob_nums} | Vence: ${fecha} | ${dias} días | S/ ${Number(d.saldo).toFixed(2)}`;
+    }).join('\n');
+
+    let msg = `Estimado *${cliente.nombre}*, le informamos que los siguientes documentos se encuentran pendientes:\n\n${docLineas}\n\n*Total pendiente: S/ ${total.toFixed(2)}*\n\nLe solicitamos regularizar su pago a la brevedad.`;
+    return msg;
+  }, [cliente, documentos, total]);
+
+  const enviar = async () => {
+    setEnviando(true);
+    try {
+      const payload = documentos.map(d => ({
+        ter_cote: cliente.ter_cote || cliente.ter_cote,
+        cliente_nombre: cliente.nombre,
+        cob_tivo: d.cob_tivo,
+        cob_nuvo: d.cob_nuvo,
+        cob_codo: d.cob_codo,
+        cob_seri: d.cob_seri,
+        cob_nums: d.cob_nums,
+        saldo: d.saldo,
+        fecha_vencimiento: d.fecha_vencimiento,
+        dias_vencido: d.dias_vencido,
+        ter_cell: cliente.telefono
+      }));
+
+      const result = await apiPost('/whatsapp/enviar-vencimiento', {
+        documentos: payload,
+        rango,
+        telefono
+      }, token);
+
+      setEnviados(result.resultados);
+      setTimeout(() => onEnviado(), 2000);
+    } catch (err) {
+      setEnviados([{ ok: false, error: err.message }]);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div className="card" style={{ width: 500, maxHeight: '90vh', overflow: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>Enviar recordatorio WhatsApp</h3>
+          <button className="btn btn-ghost" onClick={onClose} style={{ padding: '4px 8px' }}><CloseIcon size={18} /></button>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Cliente</label>
+          <div style={{ fontWeight: 700 }}>{cliente.nombre}</div>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Teléfono</label>
+          <input
+            className="input"
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            placeholder="Ej: 51923287233"
+          />
+          <div className="mutado" style={{ fontSize: 11, marginTop: 2 }}>Formato: código país + número. Ej: 51923287233</div>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Documentos ({documentos.length}) · Total: S/ {fmt(total)}</label>
+        </div>
+
+        <div style={{ background: 'var(--fondo)', borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 13, whiteSpace: 'pre-wrap', fontFamily: 'monospace', maxHeight: 200, overflow: 'auto' }}>
+          {mensajePreview}
+        </div>
+
+        {enviados ? (
+          <div>
+            {enviados.map((r, i) => (
+              <div key={i} style={{ padding: '4px 0', fontSize: 13, color: r.ok ? '#1e8449' : 'var(--rojo)' }}>
+                {r.ok ? `✓ ${r.enviados} documentos enviados` : `✗ ${r.error}`}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} onClick={onClose}>Cancelar</button>
+            <button
+              className="btn"
+              style={{ background: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}
+              disabled={enviando || !telefono}
+              onClick={enviar}
+            >
+              {enviando ? 'Enviando...' : 'Enviar WhatsApp'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===================== ModalConfigVencimientos =====================
+function ModalConfigVencimientos({ rangos, editandoRango, setEditandoRango, onClose, token }) {
+  const [form, setForm] = useState({ etiqueta: '', dias_desde: 0, dias_hasta: 0, mensaje_template: '', orden: 0 });
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    if (editandoRango) {
+      setForm({
+        etiqueta: editandoRango.etiqueta || '',
+        dias_desde: editandoRango.dias_desde || 0,
+        dias_hasta: editandoRango.dias_hasta || 0,
+        mensaje_template: editandoRango.mensaje_template || '',
+        orden: editandoRango.orden || 0
+      });
+    }
+  }, [editandoRango]);
+
+  const guardar = async () => {
+    setGuardando(true);
+    try {
+      if (editandoRango) {
+        await apiPut(`/config/vencimientos/${editandoRango.id}`, form, token);
+      } else {
+        await apiPost('/config/vencimientos', form, token);
+      }
+      setEditandoRango(null);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const toggleActivo = async (rango) => {
+    try {
+      await apiPut(`/config/vencimientos/${rango.id}`, { activo: rango.activo ? 0 : 1 }, token);
+      onClose();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const eliminar = async (id) => {
+    if (!confirm('¿Eliminar este rango?')) return;
+    try {
+      await apiDelete(`/config/vencimientos/${id}`, token);
+      setEditandoRango(null);
+      onClose();
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div className="card" style={{ width: editandoRango ? 480 : 500, maxHeight: '90vh', overflow: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>{editandoRango ? 'Editar Rango' : 'Configuración de Rangos'}</h3>
+          <button className="btn btn-ghost" onClick={onClose} style={{ padding: '4px 8px' }}><CloseIcon size={18} /></button>
+        </div>
+
+        {editandoRango ? (
+          <div>
+            <div style={{ marginBottom: 12 }}>
+              <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Etiqueta</label>
+              <input className="input" value={form.etiqueta} onChange={(e) => setForm({ ...form, etiqueta: e.target.value })} />
+            </div>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+              <label className="mutado" style={{ flex: 1, fontSize: 12 }}>
+                Días desde
+                <input className="input" type="number" style={{ width: '100%', marginTop: 4 }} value={form.dias_desde} onChange={(e) => setForm({ ...form, dias_desde: Number(e.target.value) })} />
+              </label>
+              <label className="mutado" style={{ flex: 1, fontSize: 12 }}>
+                Días hasta
+                <input className="input" type="number" style={{ width: '100%', marginTop: 4 }} value={form.dias_hasta} onChange={(e) => setForm({ ...form, dias_hasta: Number(e.target.value) })} />
+              </label>
+              <label className="mutado" style={{ flex: 1, fontSize: 12 }}>
+                Orden
+                <input className="input" type="number" style={{ width: '100%', marginTop: 4 }} value={form.orden} onChange={(e) => setForm({ ...form, orden: Number(e.target.value) })} />
+              </label>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Mensaje WhatsApp</label>
+              <textarea
+                className="input"
+                rows={4}
+                style={{ resize: 'vertical' }}
+                value={form.mensaje_template}
+                onChange={(e) => setForm({ ...form, mensaje_template: e.target.value })}
+              />
+              <div className="mutado" style={{ fontSize: 11, marginTop: 2 }}>Variables: {'{nombre}'} {'{doc}'} {'{fecha}'} {'{dias}'} {'{saldo}'} {'{total}'}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <button className="btn btn-ghost" style={{ border: '1px solid var(--rojo)', color: 'var(--rojo)' }} onClick={() => eliminar(editandoRango.id)}>Eliminar</button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} onClick={() => setEditandoRango(null)}>Volver</button>
+                <button className="btn" style={{ background: 'var(--celeste)', color: '#fff' }} disabled={guardando} onClick={guardar}>
+                  {guardando ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div>
+            {rangos.map(r => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--borde)' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{r.etiqueta}</div>
+                  <div className="mutado" style={{ fontSize: 12 }}>
+                    {r.dias_desde === r.dias_hasta ? `Día ${r.dias_desde}` : `${r.dias_desde} a ${r.dias_hasta} días`} · Orden: {r.orden}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <label style={{ fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <input type="checkbox" checked={!!r.activo} onChange={() => toggleActivo(r)} />
+                    {r.activo ? 'Activo' : 'Inactivo'}
+                  </label>
+                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 8px', border: '1px solid var(--borde)' }} onClick={() => setEditandoRango(r)}>
+                    Editar
+                  </button>
+                </div>
+              </div>
+            ))}
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn" style={{ background: 'var(--celeste)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setEditandoRango({ etiqueta: '', dias_desde: 0, dias_hasta: 0, mensaje_template: '', orden: rangos.length + 1 })}>
+                + Nuevo rango
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

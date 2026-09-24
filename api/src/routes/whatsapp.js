@@ -233,4 +233,86 @@ async function guardarLog(telefono, tipo, mensaje, imagenUrl, archivos, userId, 
   }
 }
 
+// POST /api/whatsapp/enviar-vencimiento
+// Envía mensajes de vencimiento agrupados por cliente.
+// Body: { documentos: [{ ter_cote, cliente_nombre, cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums, saldo, fecha_vencimiento, dias_vencido }], rango: 'nombre_rango', telefono: '51...' }
+router.post('/enviar-vencimiento', async (req, res) => {
+  const { documentos, rango, telefono } = req.body;
+  if (!documentos || !documentos.length || !rango) {
+    return res.status(400).json({ error: 'Faltan documentos o rango' });
+  }
+
+  const estado = wa.getEstado();
+  if (estado.estado !== 'conectado') {
+    return res.status(503).json({ error: 'WhatsApp no está conectado' });
+  }
+
+  try {
+    const [rangos] = await pool.query(
+      'SELECT * FROM config_vencimientos WHERE nombre = ?', [rango]
+    );
+    if (rangos.length === 0) return res.status(404).json({ error: 'Rango no encontrado' });
+    const configRango = rangos[0];
+
+    const porCliente = {};
+    for (const d of documentos) {
+      if (!porCliente[d.ter_cote]) {
+        porCliente[d.ter_cote] = {
+          nombre: d.cliente_nombre,
+          telefono: telefono || d.ter_cell || d.ter_fono,
+          documentos: []
+        };
+      }
+      porCliente[d.ter_cote].documentos.push(d);
+    }
+
+    const resultados = [];
+    for (const [terCote, info] of Object.entries(porCliente)) {
+      const docLineas = info.documentos.map(d => {
+        const fecha = d.fecha_vencimiento ? new Date(d.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
+        const dias = Math.abs(d.dias_vencido);
+        return `• ${d.cob_codo}-${d.cob_seri}-${d.cob_nums} | Vence: ${fecha} | ${dias} días | S/ ${Number(d.saldo).toFixed(2)}`;
+      }).join('\n');
+
+      const total = info.documentos.reduce((s, d) => s + Number(d.saldo), 0);
+
+      let mensaje = configRango.mensaje_template
+        .replace(/{nombre}/g, info.nombre)
+        .replace(/{doc}/g, `${info.documentos[0].cob_codo}-${info.documentos[0].cob_seri}-${info.documentos[0].cob_nums}`)
+        .replace(/{fecha}/g, info.documentos[0].fecha_vencimiento ? new Date(info.documentos[0].fecha_vencimiento).toLocaleDateString('es-PE') : '-')
+        .replace(/{dias}/g, Math.abs(info.documentos[0].dias_vencido))
+        .replace(/{saldo}/g, Number(info.documentos[0].saldo).toFixed(2));
+
+      if (info.documentos.length > 1) {
+        mensaje += `\n\nDocumentos pendientes en este rango:\n${docLineas}\n\n*Total pendiente: S/ ${total.toFixed(2)}*`;
+      }
+
+      const tel = info.telefono;
+      if (!tel) { resultados.push({ ter_cote: terCote, ok: false, error: 'Sin teléfono' }); continue; }
+
+      const r = await wa.enviarMensaje(tel, mensaje);
+      if (r.ok) {
+        for (const d of info.documentos) {
+          await pool.query(
+            `INSERT INTO whatsapp_envios (ter_cote, cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums, telefono, rango, mensaje, fecha_envio, enviado_por)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+            [terCote, d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums, tel, rango, mensaje, req.user.id]
+          );
+        }
+        await guardarLog(tel, 'vencimiento', mensaje, null, null, req.user.id, null);
+        resultados.push({ ter_cote: terCote, ok: true, enviados: info.documentos.length });
+      } else {
+        resultados.push({ ter_cote: terCote, ok: false, error: r.error });
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    res.json({ resultados });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error enviando mensajes de vencimiento' });
+  }
+});
+
 module.exports = router;
