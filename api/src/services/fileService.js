@@ -19,6 +19,11 @@ const MIME_MAP = {
   '.webp': 'image/webp',
   '.mp4': 'video/mp4',
   '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.opus': 'audio/opus',
   '.zip': 'application/zip'
 };
 
@@ -49,6 +54,7 @@ function listarArchivos(ruta) {
       else if (['.xlsx', '.xls'].includes(ext)) tipo = 'excel';
       else if (['.docx', '.doc'].includes(ext)) tipo = 'word';
       else if (ext === '.csv') tipo = 'csv';
+      else if (['.mp3', '.m4a', '.aac', '.ogg', '.wav', '.opus'].includes(ext)) tipo = 'audio';
 
       return {
         nombre: e.name,

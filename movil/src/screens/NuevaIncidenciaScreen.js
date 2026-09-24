@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView,
   KeyboardAvoidingView, Platform, FlatList
@@ -7,6 +7,44 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../context/ThemeContext';
 import { apiPost, apiGet } from '../api/client';
+import API_URL from '../config';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent
+} from 'expo-speech-recognition';
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync
+} from 'expo-audio';
+
+// ===================== Reproductor de nota de voz =====================
+function ControlesNota({ uri, onEliminar }) {
+  const player = useAudioPlayer(uri);
+  const status = useAudioPlayerStatus(player);
+  const { tema } = useTema();
+
+  return (
+    <View style={styles.notaControles}>
+      <TouchableOpacity
+        style={[styles.btnNota, { backgroundColor: tema.celeste }]}
+        onPress={() => (status.playing ? player.pause() : player.play())}
+      >
+        <Text style={styles.btnNotaText}>{status.playing ? 'Pausar' : 'Reproducir'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.btnNota, styles.btnNotaEliminar]}
+        onPress={onEliminar}
+      >
+        <Text style={[styles.btnNotaText, { color: '#c0392b' }]}>Eliminar</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function NuevaIncidenciaScreen({ route, navigation }) {
   const { token, user } = useAuth();
@@ -21,6 +59,17 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
   const [descripcion, setDescripcion] = useState('');
   const [accion, setAccion] = useState('');
   const [guardando, setGuardando] = useState(false);
+
+  // ---- Dictado voz→texto ----
+  const [dictando, setDictando] = useState(null); // 'desc' | 'accion' | null
+  const [previewDictado, setPreviewDictado] = useState('');
+  const dictadoBaseRef = useRef('');
+
+  // ---- Nota de voz ----
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder, 500);
+  const [grabandoNota, setGrabandoNota] = useState(false);
+  const [notaUri, setNotaUri] = useState(null);
 
   const buscarClientes = useCallback(async () => {
     if (!busqueda.trim()) return;
@@ -41,6 +90,118 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
     }, [ter_cote, buscarClientes])
   );
 
+  // Detener dictado al salir de la pantalla
+  useEffect(() => {
+    return () => {
+      try { ExpoSpeechRecognitionModule.abort(); } catch (e) {}
+    };
+  }, []);
+
+  // ---- Eventos de dictado ----
+  useSpeechRecognitionEvent('result', (ev) => {
+    const texto = ev.results?.[0]?.transcript || '';
+    if (ev.isFinal) {
+      const base = dictadoBaseRef.current;
+      const nuevo = base ? `${base} ${texto}`.trim() : texto;
+      if (dictando === 'desc') setDescripcion(nuevo);
+      else if (dictando === 'accion') setAccion(nuevo);
+      setPreviewDictado('');
+    } else {
+      setPreviewDictado(texto);
+    }
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    setDictando(null);
+    setPreviewDictado('');
+  });
+
+  useSpeechRecognitionEvent('error', (ev) => {
+    setDictando(null);
+    setPreviewDictado('');
+    if (ev.error && ev.error !== 'aborted' && ev.error !== 'no-speech') {
+      Alert.alert('Dictado no disponible', `Error: ${ev.error}. Verifica el servicio de voz del dispositivo.`);
+    }
+  });
+
+  const toggleDictado = async (campo) => {
+    if (dictando) {
+      ExpoSpeechRecognitionModule.stop();
+      return;
+    }
+
+    try {
+      const disponible = ExpoSpeechRecognitionModule.isRecognitionAvailable();
+      if (!disponible) {
+        Alert.alert(
+          'Dictado no disponible',
+          'El reconocimiento de voz no está disponible. Instala o activa el servicio de Google (Texto por voz).'
+        );
+        return;
+      }
+
+      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permiso requerido', 'Se necesita acceso al micrófono para dictar.');
+        return;
+      }
+
+      const textoActual = campo === 'desc' ? descripcion : accion;
+      dictadoBaseRef.current = textoActual;
+      setPreviewDictado('');
+      setDictando(campo);
+
+      ExpoSpeechRecognitionModule.start({
+        lang: 'es-PE',
+        interimResults: true
+      });
+    } catch (err) {
+      setDictando(null);
+      Alert.alert('Error', 'No se pudo iniciar el dictado.');
+    }
+  };
+
+  // ---- Nota de voz: grabar / detener ----
+  const iniciarNota = async () => {
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permiso requerido', 'Se necesita acceso al micrófono para grabar.');
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setGrabandoNota(true);
+      setNotaUri(null);
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo iniciar la grabación.');
+    }
+  };
+
+  const detenerNota = async () => {
+    try {
+      await recorder.stop();
+      setGrabandoNota(false);
+      setNotaUri(recorder.uri);
+    } catch (err) {
+      setGrabandoNota(false);
+      Alert.alert('Error', 'No se pudo detener la grabación.');
+    }
+  };
+
+  const eliminarNota = () => {
+    setNotaUri(null);
+  };
+
+  const formatDuracion = (ms) => {
+    const total = Math.floor((ms || 0) / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // ---- Guardar ----
   const guardar = async () => {
     if (!cliente) {
       Alert.alert('Cliente requerido', 'Selecciona el cliente de la incidencia');
@@ -52,11 +213,41 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
     }
     setGuardando(true);
     try {
-      await apiPost('/incidencias', {
+      const data = await apiPost('/incidencias', {
         ter_cote: cliente,
         inc_desc: descripcion.trim(),
         inc_acci: accion.trim()
       }, token);
+
+      // Subir nota de voz si existe (la incidencia ya está creada)
+      if (notaUri) {
+        try {
+          const formData = new FormData();
+          const extMatch = notaUri.match(/\.([a-zA-Z0-9]+)(\?|$)/);
+          const ext = extMatch ? extMatch[1].toLowerCase() : 'm4a';
+          const mimeTipo = ext === 'm4a' ? 'audio/mp4' : `audio/${ext}`;
+          formData.append('archivo', {
+            uri: notaUri,
+            name: `nota.${ext}`,
+            type: mimeTipo
+          });
+          const res = await fetch(`${API_URL}/incidencias/${data.inc_codi}/audio`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+          });
+          if (!res.ok) {
+            Alert.alert('Incidencia guardada', 'La incidencia se guardó pero no se pudo subir la nota de voz.');
+            navigation.goBack();
+            return;
+          }
+        } catch (audioErr) {
+          Alert.alert('Incidencia guardada', 'La incidencia se guardó pero no se pudo subir la nota de voz.');
+          navigation.goBack();
+          return;
+        }
+      }
+
       Alert.alert('Registrado', 'Incidencia guardada correctamente');
       navigation.goBack();
     } catch (err) {
@@ -64,6 +255,9 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
       setGuardando(false);
     }
   };
+
+  const micActivo = dictando !== null;
+  const micRojo = '#e74c3c';
 
   return (
     <KeyboardAvoidingView
@@ -115,25 +309,80 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
           </>
         )}
 
-        <Text style={[styles.label, { color: tema.primario }]}>Descripción de la visita *</Text>
+        {/* Descripción + micrófono */}
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: tema.primario, marginBottom: 0 }]}>Descripción de la visita *</Text>
+          <TouchableOpacity
+            style={[
+              styles.btnMic,
+              dictando === 'desc' && { backgroundColor: micRojo }
+            ]}
+            onPress={() => toggleDictado('desc')}
+          >
+            <Text style={styles.btnMicIcono}>{dictando === 'desc' ? '■' : '🎙'}</Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
           style={[styles.input, styles.textArea, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
           value={descripcion}
           onChangeText={setDescripcion}
-          placeholder="Describe lo encontrado en la visita..."
-          placeholderTextColor={tema.textoSuave}
+          placeholder={dictando === 'desc' ? 'Escuchando...' : 'Describe lo encontrado en la visita...'}
+          placeholderTextColor={dictando === 'desc' ? micRojo : tema.textoSuave}
           multiline
         />
+        {dictando === 'desc' && !!previewDictado && (
+          <Text style={[styles.previewDictado, { color: micRojo }]}>{previewDictado}</Text>
+        )}
 
-        <Text style={[styles.label, { color: tema.primario }]}>Acción / gestión realizada</Text>
+        {/* Acción + micrófono */}
+        <View style={styles.labelRow}>
+          <Text style={[styles.label, { color: tema.primario, marginBottom: 0 }]}>Acción / gestión realizada</Text>
+          <TouchableOpacity
+            style={[
+              styles.btnMic,
+              dictando === 'accion' && { backgroundColor: micRojo }
+            ]}
+            onPress={() => toggleDictado('accion')}
+          >
+            <Text style={styles.btnMicIcono}>{dictando === 'accion' ? '■' : '🎙'}</Text>
+          </TouchableOpacity>
+        </View>
         <TextInput
           style={[styles.input, styles.textArea, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
           value={accion}
           onChangeText={setAccion}
-          placeholder="Compromiso, promesa de pago, observaciones..."
-          placeholderTextColor={tema.textoSuave}
+          placeholder={dictando === 'accion' ? 'Escuchando...' : 'Compromiso, promesa de pago, observaciones...'}
+          placeholderTextColor={dictando === 'accion' ? micRojo : tema.textoSuave}
           multiline
         />
+        {dictando === 'accion' && !!previewDictado && (
+          <Text style={[styles.previewDictado, { color: micRojo }]}>{previewDictado}</Text>
+        )}
+
+        {/* Nota de voz opcional */}
+        <Text style={[styles.label, { color: tema.primario }]}>Nota de voz (opcional)</Text>
+        <View style={[styles.notaBox, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}>
+          {grabandoNota ? (
+            <View style={styles.notaGrabando}>
+              <View style={styles.puntoRojo} />
+              <Text style={[styles.notaTextoGrabando, { color: micRojo }]}>
+                Grabando... {formatDuracion(recorderState.durationMillis)}
+              </Text>
+              <TouchableOpacity style={[styles.btnNota, { backgroundColor: micRojo }]} onPress={detenerNota}>
+                <Text style={styles.btnNotaText}>Detener</Text>
+              </TouchableOpacity>
+            </View>
+          ) : notaUri ? (
+            <View>
+              <Text style={[styles.notaArchivo, { color: tema.textoSuave }]}>✓ Nota de voz grabada</Text>
+              <ControlesNota key={notaUri} uri={notaUri} onEliminar={eliminarNota} />
+            </View>
+          ) : (
+            <TouchableOpacity style={[styles.btnNota, { backgroundColor: tema.celeste }]} onPress={iniciarNota}>
+              <Text style={styles.btnNotaText}>⏺ Grabar nota de voz</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         <Text style={[styles.hint, { color: tema.textoSuave }]}>Vendedor: {user ? user.use_logi : '-'}</Text>
 
@@ -154,11 +403,34 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 6, marginTop: 8 },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 6
+  },
   input: {
     borderWidth: 1, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10, fontSize: 15
   },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
+  btnMic: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#e8e8e8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8
+  },
+  btnMicIcono: { fontSize: 18 },
+  previewDictado: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 2
+  },
   buscarRow: { flexDirection: 'row', gap: 8 },
   inputBuscar: {
     flex: 1, borderWidth: 1, borderRadius: 8,
@@ -183,6 +455,53 @@ const styles = StyleSheet.create({
   },
   clienteElegidoNombre: { fontSize: 14, fontWeight: '700', flex: 1 },
   cambiar: { fontSize: 13, fontWeight: '700' },
+  notaBox: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 4
+  },
+  notaGrabando: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10
+  },
+  puntoRojo: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#e74c3c'
+  },
+  notaTextoGrabando: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600'
+  },
+  notaArchivo: {
+    fontSize: 12,
+    marginBottom: 8
+  },
+  notaControles: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  btnNota: {
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  btnNotaEliminar: {
+    backgroundColor: '#fde9ec',
+    borderWidth: 1,
+    borderColor: '#c0392b'
+  },
+  btnNotaText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700'
+  },
   hint: { fontSize: 12, marginTop: 12 },
   btnGuardar: {
     borderRadius: 10, paddingVertical: 14,

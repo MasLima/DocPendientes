@@ -1,5 +1,10 @@
 const router = require('express').Router();
 const pool = require('../config/db');
+const fs = require('fs');
+const path = require('path');
+
+const AUDIO_EXT_PERMITIDAS = ['.m4a', '.aac', '.ogg', '.wav', '.mp3', '.opus'];
+const UPLOAD_AUDIO_DIR = path.join(__dirname, '..', '..', 'uploads', 'incidencias');
 
 // Limpia el relleno del ERP (tabs y espacios repetidos) en las descripciones.
 // Los emojis y acentos se conservan (la conexion es utf8mb4).
@@ -230,6 +235,77 @@ router.post('/', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   } finally {
     conexion.release();
+  }
+});
+
+// ============================================================
+// NOTA DE VOZ (audio opcional de la incidencia)
+// El archivo se guarda con nombre {inc_codi}.{ext} en
+// api/uploads/incidencias/ — la relacion es por nombre,
+// no se agrega columna a la tabla.
+// ============================================================
+
+// Subir audio de una incidencia
+// POST /api/incidencias/:codi/audio   (multipart, campo "archivo")
+router.post('/:codi/audio', async (req, res) => {
+  try {
+    const codi = parseInt(req.params.codi, 10);
+    if (!codi || isNaN(codi)) {
+      return res.status(400).json({ error: 'Codigo de incidencia invalido' });
+    }
+
+    const [rows] = await pool.query('SELECT inc_codi FROM incidencias WHERE inc_codi = ?', [codi]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Incidencia no encontrada' });
+    }
+
+    if (!req.files || !req.files.archivo) {
+      return res.status(400).json({ error: 'No se envio archivo' });
+    }
+
+    const archivo = req.files.archivo;
+    const ext = path.extname(archivo.name || '').toLowerCase();
+    if (!AUDIO_EXT_PERMITIDAS.includes(ext)) {
+      return res.status(400).json({ error: `Formato de audio no permitido: ${ext || '(sin extension)'}` });
+    }
+
+    if (!fs.existsSync(UPLOAD_AUDIO_DIR)) fs.mkdirSync(UPLOAD_AUDIO_DIR, { recursive: true });
+
+    // Relacion por nombre: {inc_codi}.{ext}
+    const destino = path.join(UPLOAD_AUDIO_DIR, `${codi}${ext}`);
+    await archivo.mv(destino);
+
+    res.json({ ruta: destino, nombre: `${codi}${ext}`, tamano: archivo.size });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Verificar si una incidencia tiene audio
+// GET /api/incidencias/:codi/audio
+router.get('/:codi/audio', async (req, res) => {
+  try {
+    const codi = parseInt(req.params.codi, 10);
+    if (!codi || isNaN(codi)) {
+      return res.status(400).json({ error: 'Codigo de incidencia invalido' });
+    }
+
+    if (!fs.existsSync(UPLOAD_AUDIO_DIR)) {
+      return res.json({ existe: false });
+    }
+
+    for (const ext of AUDIO_EXT_PERMITIDAS) {
+      const p = path.join(UPLOAD_AUDIO_DIR, `${codi}${ext}`);
+      if (fs.existsSync(p)) {
+        const stat = fs.statSync(p);
+        return res.json({ existe: true, nombre: `${codi}${ext}`, tamano: stat.size });
+      }
+    }
+    res.json({ existe: false });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 });
 
