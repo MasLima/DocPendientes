@@ -657,8 +657,9 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
     : [];
 
   const clientesSeleccionados = seleccionadosDelRango.reduce((acc, d) => {
-    if (!acc[d.ter_cote]) acc[d.ter_cote] = { nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
-    acc[d.ter_cote].documentos.push(d);
+    const cote = d.cob_cote;
+    if (!acc[cote]) acc[cote] = { nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
+    acc[cote].documentos.push(d);
     return acc;
   }, {});
 
@@ -747,8 +748,9 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
                       onClick={() => {
                         const clientes = {};
                         seleccionadosDelRango.forEach(d => {
-                          if (!clientes[d.ter_cote]) clientes[d.ter_cote] = { ter_cote: d.ter_cote, nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
-                          clientes[d.ter_cote].documentos.push(d);
+                          const cote = d.cob_cote;
+                          if (!clientes[cote]) clientes[cote] = { ter_cote: cote, nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
+                          clientes[cote].documentos.push(d);
                         });
                         onEnviarWhatsApp(Object.values(clientes));
                       }}
@@ -932,7 +934,7 @@ function ModalEnvioVencimiento({ clientes, rango, onClose, onEnviado, token }) {
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)', display: 'flex', alignItems: 'center', gap: 6 }} onClick={onClose}>
+            <button className="btn btn-ghost" style={{ border: '1px solid #c0392b', color: '#c0392b', background: '#fde9ec', display: 'flex', alignItems: 'center', gap: 6 }} onClick={onClose}>
               <CloseIcon size={16} /> Cancelar
             </button>
             <button
