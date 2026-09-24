@@ -44,3 +44,6 @@ CREATE TABLE whatsapp_envios (
   INDEX idx_envio_doc (cob_tivo, cob_nuvo),
   INDEX idx_envio_fecha (fecha_envio)
 ) ENGINE=InnoDB;
+
+-- Actualizar templates existentes: reemplazar S/ fijo por variable {moneda}
+UPDATE config_vencimientos SET mensaje_template = REPLACE(mensaje_template, 'por S/ {saldo}', 'por {moneda} {saldo}');
