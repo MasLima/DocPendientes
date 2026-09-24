@@ -193,6 +193,14 @@ export function CheckIcon({ size = 20 }) {
   );
 }
 
+export function BoldCheckIcon({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" stroke="currentColor" strokeWidth={48} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M416 128 192 384l-96-96" />
+    </svg>
+  );
+}
+
 export function CloseIcon({ size = 20 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
@@ -262,6 +270,14 @@ export function FunnelIcon({ size = 18 }) {
       <line x1="176" y1="176" x2="336" y2="176" />
       <line x1="208" y1="256" x2="304" y2="256" />
       <line x1="240" y1="336" x2="272" y2="336" />
+    </svg>
+  );
+}
+
+export function UndoIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M212.333 224.333H12c-6.627 0-12-5.373-12-12V12C0 5.373 5.373 0 12 0h48c6.627 0 12 5.373 12 12v78.112C117.773 39.139 184.26 7.47 256 7.47c136.966 0 247.999 111.033 248 247.998C504.001 392.434 392.967 503.468 256 503.468c-63.639 0-122.07-24.003-166.522-63.314l-29.21-26.564c-5.138-4.622-5.527-12.562-.787-17.564l30.241-33.176c4.687-5.136 12.586-5.503 17.613-.831C184.39 350.447 219.324 364 256 364c99.378 0 180-80.622 180-180 0-99.378-80.622-180-180-180-82.773 0-153.834 55.853-176.073 131.563L232.687 224.333C239.062 224.333 244.333 229.604 244.333 236v48c0 6.627-5.373 12-12 12z" />
     </svg>
   );
 }

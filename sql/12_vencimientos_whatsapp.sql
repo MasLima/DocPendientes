@@ -18,12 +18,12 @@ CREATE TABLE config_vencimientos (
 ) ENGINE=InnoDB;
 
 INSERT INTO config_vencimientos (nombre, etiqueta, dias_desde, dias_hasta, orden, mensaje_template) VALUES
-('7_dias_antes',    '7 días antes de vencer',        -7,  -5, 1, 'Estimado *{nombre}*, le recordamos que su documento *{doc}* vence el {fecha} por S/ {saldo}. Agradecemos su puntualidad.'),
-('5_dias_antes',    '5 días antes de vencer',        -5,  -3, 2, 'Estimado *{nombre}*, le informamos que su documento *{doc}* vence en {dias} días ({fecha}) por S/ {saldo}.'),
-('dia_vencimiento', 'Día de vencimiento',              0,   0, 3, 'Estimado *{nombre}*, su documento *{doc}* vence HOY por S/ {saldo}. Le solicitamos regularizar su pago.'),
-('2_dias_vencido',  '1-3 días vencido',                1,   3, 4, 'Estimado *{nombre}*, su documento *{doc}* se encuentra vencido desde hace {dias} días por S/ {saldo}. Le rogamos regularizar.'),
-('7_dias_vencido',  '4-7 días vencido',                4,   7, 5, 'Estimado *{nombre}*, su documento *{doc}* lleva {dias} días vencido por S/ {saldo}. Por favor regularizar a la brevedad.'),
-('8_30_dias_vencido', '8-30 días vencido',             8,  30, 6, 'Estimado *{nombre}*, su documento *{doc}* lleva {dias} días vencido por S/ {saldo}. Le solicitamos urgente regularización.');
+('7_dias_antes',    '7 días antes de vencer',        -7,  -5, 1, 'Estimado *{nombre}*, le recordamos que su documento *{doc}* vence el {fecha} por {moneda} {saldo}. Agradecemos su puntualidad.'),
+('5_dias_antes',    '5 días antes de vencer',        -5,  -3, 2, 'Estimado *{nombre}*, le informamos que su documento *{doc}* vence en {dias} días ({fecha}) por {moneda} {saldo}.'),
+('dia_vencimiento', 'Día de vencimiento',              0,   0, 3, 'Estimado *{nombre}*, su documento *{doc}* vence HOY por {moneda} {saldo}. Le solicitamos regularizar su pago.'),
+('2_dias_vencido',  '1-3 días vencido',                1,   3, 4, 'Estimado *{nombre}*, su documento *{doc}* se encuentra vencido desde hace {dias} días por {moneda} {saldo}. Le rogamos regularizar.'),
+('7_dias_vencido',  '4-7 días vencido',                4,   7, 5, 'Estimado *{nombre}*, su documento *{doc}* lleva {dias} días vencido por {moneda} {saldo}. Por favor regularizar a la brevedad.'),
+('8_30_dias_vencido', '8-30 días vencido',             8,  30, 6, 'Estimado *{nombre}*, su documento *{doc}* lleva {dias} días vencido por {moneda} {saldo}. Le solicitamos urgente regularización.');
 
 -- Control de envíos por WhatsApp
 DROP TABLE IF EXISTS whatsapp_envios;

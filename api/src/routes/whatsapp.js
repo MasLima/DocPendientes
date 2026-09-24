@@ -271,20 +271,24 @@ router.post('/enviar-vencimiento', async (req, res) => {
       const docLineas = info.documentos.map(d => {
         const fecha = d.fecha_vencimiento ? new Date(d.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
         const dias = Math.abs(d.dias_vencido);
-        return `• ${d.cob_codo}-${d.cob_seri}-${d.cob_nums} | Vence: ${fecha} | ${dias} días | S/ ${Number(d.saldo).toFixed(2)}`;
+        const moneda = d.cob_como === 'USD' ? 'US$' : 'S/';
+        return `\u2022 ${d.cob_codo}-${d.cob_seri}-${d.cob_nums} | Vence: ${fecha} | ${dias} d\u00edas | ${moneda} ${Number(d.saldo).toFixed(2)}`;
       }).join('\n');
 
       const total = info.documentos.reduce((s, d) => s + Number(d.saldo), 0);
+      const monedaTotal = info.documentos[0]?.cob_como === 'USD' ? 'US$' : 'S/';
+      const tipoDoc = info.documentos[0]?.cob_codo || '';
 
       let mensaje = configRango.mensaje_template
         .replace(/{nombre}/g, info.nombre)
-        .replace(/{doc}/g, `${info.documentos[0].cob_codo}-${info.documentos[0].cob_seri}-${info.documentos[0].cob_nums}`)
+        .replace(/{doc}/g, `${tipoDoc}-${info.documentos[0].cob_seri}-${info.documentos[0].cob_nums}`)
         .replace(/{fecha}/g, info.documentos[0].fecha_vencimiento ? new Date(info.documentos[0].fecha_vencimiento).toLocaleDateString('es-PE') : '-')
         .replace(/{dias}/g, Math.abs(info.documentos[0].dias_vencido))
-        .replace(/{saldo}/g, Number(info.documentos[0].saldo).toFixed(2));
+        .replace(/{saldo}/g, Number(info.documentos[0].saldo).toFixed(2))
+        .replace(/{moneda}/g, info.documentos[0].cob_como === 'USD' ? 'US$' : 'S/');
 
       if (info.documentos.length > 1) {
-        mensaje += `\n\nDocumentos pendientes en este rango:\n${docLineas}\n\n*Total pendiente: S/ ${total.toFixed(2)}*`;
+        mensaje += `\n\nDocumentos pendientes en este rango:\n${docLineas}\n\n*Total pendiente: ${monedaTotal} ${total.toFixed(2)}*`;
       }
 
       const tel = info.telefono;

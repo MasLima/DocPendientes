@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import Exportar from '../components/Exportar';
-import { EyeIcon, DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, SettingsIcon, CheckIcon, CloseIcon, WhatsAppIcon, WhatsAppSendIcon } from '../components/Iconos';
+import { EyeIcon, DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, SettingsIcon, BoldCheckIcon, CloseIcon, WhatsAppIcon, WhatsAppSendIcon, UndoIcon } from '../components/Iconos';
 import CampoBusqueda from '../components/CampoBusqueda';
 import FiltroVendedores from '../components/FiltroVendedores';
 
@@ -672,7 +672,7 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div className="mutado">
-          Total: {total.cantidad} documentos · S/ {fmt(total.saldo_pen)}
+          Total: {total.cantidad} documentos · S/ {fmt(total.saldo_pen)} · Evaluado al {fmtFecha(new Date())}
         </div>
         <button
           className="btn btn-ghost"
@@ -753,7 +753,7 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
                         onEnviarWhatsApp(Object.values(clientes));
                       }}
                     >
-                      Enviar WhatsApp ({docsSeleccionados.length} docs, {Object.keys(clientesSeleccionados).length} clientes)
+                      <WhatsAppSendIcon size={14} /> Enviar WhatsApp ({docsSeleccionados.length} docs, {Object.keys(clientesSeleccionados).length} clientes)
                     </button>
                   )}
                 </div>
@@ -1041,18 +1041,18 @@ function ModalConfigVencimientos({ rangos, editandoRango, setEditandoRango, onCl
                 value={form.mensaje_template}
                 onChange={(e) => setForm({ ...form, mensaje_template: e.target.value })}
               />
-              <div className="mutado" style={{ fontSize: 11, marginTop: 2 }}>Variables: {'{nombre}'} {'{doc}'} {'{fecha}'} {'{dias}'} {'{saldo}'} {'{total}'}</div>
+              <div className="mutado" style={{ fontSize: 11, marginTop: 2 }}>Variables: {'{nombre}'} {'{doc}'} {'{fecha}'} {'{dias}'} {'{saldo}'} {'{moneda}'} {'{total}'}</div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <button className="btn btn-ghost" style={{ border: '1px solid var(--rojo)', color: 'var(--rojo)', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => eliminar(editandoRango.id)}>
+              <button className="btn btn-ghost" style={{ border: '1px solid #c0392b', color: '#c0392b', background: '#fde9ec', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => eliminar(editandoRango.id)}>
                 <CloseIcon size={14} /> Eliminar
               </button>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setEditandoRango(null)}>
-                  <CloseIcon size={14} /> Volver
+                  <UndoIcon size={14} /> Volver
                 </button>
                 <button className="btn" style={{ background: 'var(--celeste)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }} disabled={guardando} onClick={guardar}>
-                  <CheckIcon size={14} /> {guardando ? 'Guardando...' : 'Guardar'}
+                  <BoldCheckIcon size={18} /> {guardando ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </div>
