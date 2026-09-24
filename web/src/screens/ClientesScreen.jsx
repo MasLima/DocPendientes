@@ -595,6 +595,7 @@ export default function ClientesScreen() {
         <ModalEnvioVencimiento
           clientes={modalEnvio.clientes}
           rango={rangoExpandido}
+          mensajeTemplate={rangos[rangoExpandido]?.mensaje_template || ''}
           onClose={() => setModalEnvio(null)}
           onEnviado={() => { setModalEnvio(null); setDocsSeleccionados([]); cargarVencimientos(); }}
           token={token}
@@ -818,7 +819,7 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
 }
 
 // ===================== ModalEnvioVencimiento =====================
-function ModalEnvioVencimiento({ clientes, rango, onClose, onEnviado, token }) {
+function ModalEnvioVencimiento({ clientes, rango, mensajeTemplate, onClose, onEnviado, token }) {
   const [resultados, setResultados] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const [clienteActual, setClienteActual] = useState(0);
@@ -829,22 +830,32 @@ function ModalEnvioVencimiento({ clientes, rango, onClose, onEnviado, token }) {
 
   const getTelefono = (c) => telefonoEditado[c.ter_cote] || c.telefono || '';
 
-  const mensajePreview = useMemo(() => {
-    if (clientes.length === 1) {
-      const c = clientes[0];
-      const docLineas = c.documentos.map(d => {
-        const fecha = d.fecha_vencimiento ? new Date(d.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
-        const dias = Math.abs(d.dias_vencido);
-        return `\u2022 ${d.cob_codo}-${d.cob_seri}-${d.cob_nums} | Vence: ${fecha} | ${dias} d\u00edas | S/ ${Number(d.saldo).toFixed(2)}`;
-      }).join('\n');
-      const total = c.documentos.reduce((s, d) => s + Number(d.saldo), 0);
-      return `Estimado *${c.nombre}*, le informamos que los siguientes documentos se encuentran pendientes:\n\n${docLineas}\n\n*Total pendiente: S/ ${total.toFixed(2)}*\n\nLe solicitamos regularizar su pago a la brevedad.`;
-    }
-    return clientes.map(c => {
-      const total = c.documentos.reduce((s, d) => s + Number(d.saldo), 0);
-      return `[${c.nombre}] ${c.documentos.length} docs, S/ ${total.toFixed(2)}`;
+  const buildMensaje = (c) => {
+    const d = c.documentos[0];
+    const moneda = d.cob_como === 'USD' ? 'US$' : 'S/';
+    const docLineas = c.documentos.map(doc => {
+      const fecha = doc.fecha_vencimiento ? new Date(doc.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
+      const dias = Math.abs(doc.dias_vencido);
+      const monDoc = doc.cob_como === 'USD' ? 'US$' : 'S/';
+      return `\u2022 ${doc.cob_codo}-${doc.cob_seri}-${doc.cob_nums} | Vence: ${fecha} | ${dias} d\u00edas | ${monDoc} ${Number(doc.saldo).toFixed(2)}`;
     }).join('\n');
-  }, [clientes]);
+    const total = c.documentos.reduce((s, doc) => s + Number(doc.saldo), 0);
+    const tipoDoc = d.cob_codo || '';
+    const fecha = d.fecha_vencimiento ? new Date(d.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
+
+    let msg = mensajeTemplate
+      .replace(/{nombre}/g, c.nombre)
+      .replace(/{doc}/g, `${tipoDoc}-${d.cob_seri}-${d.cob_nums}`)
+      .replace(/{fecha}/g, fecha)
+      .replace(/{dias}/g, Math.abs(d.dias_vencido))
+      .replace(/{saldo}/g, Number(d.saldo).toFixed(2))
+      .replace(/{moneda}/g, moneda);
+
+    if (c.documentos.length > 1) {
+      msg += `\n\nDocumentos pendientes en este rango:\n${docLineas}\n\n*Total pendiente: ${moneda} ${total.toFixed(2)}*`;
+    }
+    return msg;
+  };
 
   const enviar = async () => {
     setEnviando(true);
@@ -882,8 +893,6 @@ function ModalEnvioVencimiento({ clientes, rango, onClose, onEnviado, token }) {
     setTimeout(() => onEnviado(), 2000);
   };
 
-  const allEnviados = resultados && resultados.every(r => r.ok);
-
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div className="card" style={{ width: 520, maxHeight: '90vh', overflow: 'auto' }}>
@@ -919,12 +928,13 @@ function ModalEnvioVencimiento({ clientes, rango, onClose, onEnviado, token }) {
                 />
               </div>
             )}
+            {(!resultados || !resultados[idx]?.ok) && (
+              <div style={{ background: '#fff', borderRadius: 6, padding: 8, marginTop: 4, fontSize: 12, whiteSpace: 'pre-wrap', fontFamily: 'monospace', maxHeight: 120, overflow: 'auto', border: '1px solid var(--borde)' }}>
+                {buildMensaje(c)}
+              </div>
+            )}
           </div>
         ))}
-
-        <div style={{ background: 'var(--fondo)', borderRadius: 8, padding: 12, marginTop: 12, marginBottom: 14, fontSize: 13, whiteSpace: 'pre-wrap', fontFamily: 'monospace', maxHeight: 150, overflow: 'auto' }}>
-          {mensajePreview}
-        </div>
 
         {resultados ? (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
