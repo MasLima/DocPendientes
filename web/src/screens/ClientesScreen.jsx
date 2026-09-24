@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import Exportar from '../components/Exportar';
-import { EyeIcon, DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, SettingsIcon, CheckIcon, CloseIcon, WhatsAppIcon } from '../components/Iconos';
+import { EyeIcon, DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, SettingsIcon, CheckIcon, CloseIcon, WhatsAppIcon, WhatsAppSendIcon } from '../components/Iconos';
 import CampoBusqueda from '../components/CampoBusqueda';
 import FiltroVendedores from '../components/FiltroVendedores';
 
@@ -56,11 +56,10 @@ export default function ClientesScreen() {
   const [vencError, setVencError] = useState('');
   const [rangoExpandido, setRangoExpandido] = useState(null);
   const [docsSeleccionados, setDocsSeleccionados] = useState([]);
-  const [modalEnvio, setModalEnvio] = useState(null); // { cliente, telefono, docs }
+  const [modalEnvio, setModalEnvio] = useState(null); // { clientes: [...] }
   const [modalConfig, setModalConfig] = useState(false);
   const [configRangos, setConfigRangos] = useState([]);
   const [editandoRango, setEditandoRango] = useState(null);
-  const [enviando, setEnviando] = useState(false);
 
   const seleccionarTipoRango = (tipo) => {
     setTipoRangoAnti(tipo);
@@ -581,7 +580,7 @@ export default function ClientesScreen() {
                 setRangoExpandido={setRangoExpandido}
                 docsSeleccionados={docsSeleccionados}
                 setDocsSeleccionados={setDocsSeleccionados}
-                onEnviarWhatsApp={(cliente, docs) => setModalEnvio({ cliente, docs })}
+                onEnviarWhatsApp={(clientes) => setModalEnvio({ clientes })}
                 cargando={!vencimientos && !vencError}
                 configRangos={configRangos}
                 setModalConfig={setModalConfig}
@@ -594,14 +593,11 @@ export default function ClientesScreen() {
 
       {modalEnvio && (
         <ModalEnvioVencimiento
-          cliente={modalEnvio.cliente}
-          documentos={modalEnvio.docs}
+          clientes={modalEnvio.clientes}
           rango={rangoExpandido}
           onClose={() => setModalEnvio(null)}
           onEnviado={() => { setModalEnvio(null); setDocsSeleccionados([]); cargarVencimientos(); }}
           token={token}
-          enviando={enviando}
-          setEnviando={setEnviando}
         />
       )}
 
@@ -683,7 +679,7 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
           style={{ border: '1px solid var(--borde)', display: 'flex', alignItems: 'center', gap: 6, height: 36 }}
           onClick={() => setModalConfig(true)}
         >
-          <SettingsIcon size={16} /> Configurar rangos
+          <SettingsIcon size={20} /> Configurar rangos
         </button>
       </div>
 
@@ -751,12 +747,10 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
                       onClick={() => {
                         const clientes = {};
                         seleccionadosDelRango.forEach(d => {
-                          if (!clientes[d.ter_cote]) clientes[d.ter_cote] = { nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
+                          if (!clientes[d.ter_cote]) clientes[d.ter_cote] = { ter_cote: d.ter_cote, nombre: d.cliente_nombre, telefono: d.ter_cell || d.ter_fono || '', documentos: [] };
                           clientes[d.ter_cote].documentos.push(d);
                         });
-                        Object.entries(clientes).forEach(([terCote, info]) => {
-                          onEnviarWhatsApp({ ter_cote: terCote, ...info }, info.documentos);
-                        });
+                        onEnviarWhatsApp(Object.values(clientes));
                       }}
                     >
                       Enviar WhatsApp ({docsSeleccionados.length} docs, {Object.keys(clientesSeleccionados).length} clientes)
@@ -822,105 +816,132 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
 }
 
 // ===================== ModalEnvioVencimiento =====================
-function ModalEnvioVencimiento({ cliente, documentos, rango, onClose, onEnviado, token, enviando, setEnviando }) {
-  const [telefono, setTelefono] = useState(cliente.telefono || '');
-  const [enviados, setEnviados] = useState(null);
+function ModalEnvioVencimiento({ clientes, rango, onClose, onEnviado, token }) {
+  const [resultados, setResultados] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const [clienteActual, setClienteActual] = useState(0);
+  const [telefonoEditado, setTelefonoEditado] = useState({});
 
-  const total = documentos.reduce((s, d) => s + Number(d.saldo), 0);
+  const totalDocs = clientes.reduce((s, c) => s + c.documentos.length, 0);
+  const totalSaldo = clientes.reduce((s, c) => s + c.documentos.reduce((s2, d) => s2 + Number(d.saldo), 0), 0);
+
+  const getTelefono = (c) => telefonoEditado[c.ter_cote] || c.telefono || '';
 
   const mensajePreview = useMemo(() => {
-    const docLineas = documentos.map(d => {
-      const fecha = d.fecha_vencimiento ? new Date(d.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
-      const dias = Math.abs(d.dias_vencido);
-      return `• ${d.cob_codo}-${d.cob_seri}-${d.cob_nums} | Vence: ${fecha} | ${dias} días | S/ ${Number(d.saldo).toFixed(2)}`;
+    if (clientes.length === 1) {
+      const c = clientes[0];
+      const docLineas = c.documentos.map(d => {
+        const fecha = d.fecha_vencimiento ? new Date(d.fecha_vencimiento).toLocaleDateString('es-PE') : '-';
+        const dias = Math.abs(d.dias_vencido);
+        return `\u2022 ${d.cob_codo}-${d.cob_seri}-${d.cob_nums} | Vence: ${fecha} | ${dias} d\u00edas | S/ ${Number(d.saldo).toFixed(2)}`;
+      }).join('\n');
+      const total = c.documentos.reduce((s, d) => s + Number(d.saldo), 0);
+      return `Estimado *${c.nombre}*, le informamos que los siguientes documentos se encuentran pendientes:\n\n${docLineas}\n\n*Total pendiente: S/ ${total.toFixed(2)}*\n\nLe solicitamos regularizar su pago a la brevedad.`;
+    }
+    return clientes.map(c => {
+      const total = c.documentos.reduce((s, d) => s + Number(d.saldo), 0);
+      return `[${c.nombre}] ${c.documentos.length} docs, S/ ${total.toFixed(2)}`;
     }).join('\n');
-
-    let msg = `Estimado *${cliente.nombre}*, le informamos que los siguientes documentos se encuentran pendientes:\n\n${docLineas}\n\n*Total pendiente: S/ ${total.toFixed(2)}*\n\nLe solicitamos regularizar su pago a la brevedad.`;
-    return msg;
-  }, [cliente, documentos, total]);
+  }, [clientes]);
 
   const enviar = async () => {
     setEnviando(true);
-    try {
-      const payload = documentos.map(d => ({
-        ter_cote: cliente.ter_cote || cliente.ter_cote,
-        cliente_nombre: cliente.nombre,
-        cob_tivo: d.cob_tivo,
-        cob_nuvo: d.cob_nuvo,
-        cob_codo: d.cob_codo,
-        cob_seri: d.cob_seri,
-        cob_nums: d.cob_nums,
-        saldo: d.saldo,
-        fecha_vencimiento: d.fecha_vencimiento,
-        dias_vencido: d.dias_vencido,
-        ter_cell: cliente.telefono
-      }));
-
-      const result = await apiPost('/whatsapp/enviar-vencimiento', {
-        documentos: payload,
-        rango,
-        telefono
-      }, token);
-
-      setEnviados(result.resultados);
-      setTimeout(() => onEnviado(), 2000);
-    } catch (err) {
-      setEnviados([{ ok: false, error: err.message }]);
-    } finally {
-      setEnviando(false);
+    setResultados([]);
+    for (let i = 0; i < clientes.length; i++) {
+      const c = clientes[i];
+      setClienteActual(i);
+      const tel = getTelefono(c);
+      try {
+        const payload = c.documentos.map(d => ({
+          ter_cote: c.ter_cote,
+          cliente_nombre: c.nombre,
+          cob_tivo: d.cob_tivo,
+          cob_nuvo: d.cob_nuvo,
+          cob_codo: d.cob_codo,
+          cob_seri: d.cob_seri,
+          cob_nums: d.cob_nums,
+          saldo: d.saldo,
+          fecha_vencimiento: d.fecha_vencimiento,
+          dias_vencido: d.dias_vencido,
+          ter_cell: tel
+        }));
+        const result = await apiPost('/whatsapp/enviar-vencimiento', {
+          documentos: payload,
+          rango,
+          telefono: tel
+        }, token);
+        setResultados(prev => [...prev, { cliente: c.nombre, ...result.resultados[0] }]);
+      } catch (err) {
+        setResultados(prev => [...prev, { cliente: c.nombre, ok: false, error: err.message }]);
+      }
+      if (i < clientes.length - 1) await new Promise(resolve => setTimeout(resolve, 2000));
     }
+    setEnviando(false);
+    setTimeout(() => onEnviado(), 2000);
   };
+
+  const allEnviados = resultados && resultados.every(r => r.ok);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div className="card" style={{ width: 500, maxHeight: '90vh', overflow: 'auto' }}>
+      <div className="card" style={{ width: 520, maxHeight: '90vh', overflow: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <h3 style={{ margin: 0, fontSize: 16 }}>Enviar recordatorio WhatsApp</h3>
           <button className="btn btn-ghost" onClick={onClose} style={{ padding: '4px 8px' }}><CloseIcon size={18} /></button>
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Cliente</label>
-          <div style={{ fontWeight: 700 }}>{cliente.nombre}</div>
+          <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Clientes ({clientes.length}) · Documentos ({totalDocs}) · Total: S/ {fmt(totalSaldo)}</label>
         </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Teléfono</label>
-          <input
-            className="input"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            placeholder="Ej: 51923287233"
-          />
-          <div className="mutado" style={{ fontSize: 11, marginTop: 2 }}>Formato: código país + número. Ej: 51923287233</div>
-        </div>
+        {clientes.map((c, idx) => (
+          <div key={c.ter_cote} style={{ marginBottom: 10, padding: '8px 12px', background: 'var(--fondo)', borderRadius: 8, border: `1px solid ${resultados && resultados[idx]?.ok === false ? 'var(--rojo)' : 'var(--borde)'}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>
+                {resultados && resultados[idx] ? (
+                  resultados[idx].ok ? <span style={{ color: '#1e8449' }}>✓ Enviado</span> : <span style={{ color: 'var(--rojo)' }}>✗ {resultados[idx].error}</span>
+                ) : (
+                  enviando && clienteActual === idx ? <span style={{ color: 'var(--warning)' }}>Enviando...</span> : c.nombre
+                )}
+              </div>
+              <span className="mutado" style={{ fontSize: 12 }}>{c.documentos.length} docs</span>
+            </div>
+            {!resultados?.[idx]?.ok && (
+              <div style={{ marginBottom: 4 }}>
+                <input
+                  className="input"
+                  style={{ fontSize: 12, height: 30 }}
+                  value={getTelefono(c)}
+                  onChange={(e) => setTelefonoEditado(prev => ({ ...prev, [c.ter_cote]: e.target.value }))}
+                  placeholder="Teléfono (código país + número)"
+                />
+              </div>
+            )}
+          </div>
+        ))}
 
-        <div style={{ marginBottom: 12 }}>
-          <label className="mutado" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>Documentos ({documentos.length}) · Total: S/ {fmt(total)}</label>
-        </div>
-
-        <div style={{ background: 'var(--fondo)', borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 13, whiteSpace: 'pre-wrap', fontFamily: 'monospace', maxHeight: 200, overflow: 'auto' }}>
+        <div style={{ background: 'var(--fondo)', borderRadius: 8, padding: 12, marginTop: 12, marginBottom: 14, fontSize: 13, whiteSpace: 'pre-wrap', fontFamily: 'monospace', maxHeight: 150, overflow: 'auto' }}>
           {mensajePreview}
         </div>
 
-        {enviados ? (
-          <div>
-            {enviados.map((r, i) => (
-              <div key={i} style={{ padding: '4px 0', fontSize: 13, color: r.ok ? '#1e8449' : 'var(--rojo)' }}>
-                {r.ok ? `✓ ${r.enviados} documentos enviados` : `✗ ${r.error}`}
-              </div>
-            ))}
+        {resultados ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn btn-ghost" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CloseIcon size={16} /> Cerrar
+            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} onClick={onClose}>Cancelar</button>
+            <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)', display: 'flex', alignItems: 'center', gap: 6 }} onClick={onClose}>
+              <CloseIcon size={16} /> Cancelar
+            </button>
             <button
               className="btn"
               style={{ background: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }}
-              disabled={enviando || !telefono}
+              disabled={enviando || clientes.some(c => !getTelefono(c))}
               onClick={enviar}
             >
-              {enviando ? 'Enviando...' : 'Enviar WhatsApp'}
+              <WhatsAppSendIcon size={16} /> {enviando ? `Enviando (${clienteActual + 1}/${clientes.length})...` : 'Enviar WhatsApp'}
             </button>
           </div>
         )}
@@ -955,6 +976,7 @@ function ModalConfigVencimientos({ rangos, editandoRango, setEditandoRango, onCl
         await apiPost('/config/vencimientos', form, token);
       }
       setEditandoRango(null);
+      onClose();
     } catch (err) {
       alert(err.message);
     } finally {
@@ -1022,11 +1044,15 @@ function ModalConfigVencimientos({ rangos, editandoRango, setEditandoRango, onCl
               <div className="mutado" style={{ fontSize: 11, marginTop: 2 }}>Variables: {'{nombre}'} {'{doc}'} {'{fecha}'} {'{dias}'} {'{saldo}'} {'{total}'}</div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <button className="btn btn-ghost" style={{ border: '1px solid var(--rojo)', color: 'var(--rojo)' }} onClick={() => eliminar(editandoRango.id)}>Eliminar</button>
+              <button className="btn btn-ghost" style={{ border: '1px solid var(--rojo)', color: 'var(--rojo)', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => eliminar(editandoRango.id)}>
+                <CloseIcon size={14} /> Eliminar
+              </button>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)' }} onClick={() => setEditandoRango(null)}>Volver</button>
-                <button className="btn" style={{ background: 'var(--celeste)', color: '#fff' }} disabled={guardando} onClick={guardar}>
-                  {guardando ? 'Guardando...' : 'Guardar'}
+                <button className="btn btn-ghost" style={{ border: '1px solid var(--borde)', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setEditandoRango(null)}>
+                  <CloseIcon size={14} /> Volver
+                </button>
+                <button className="btn" style={{ background: 'var(--celeste)', color: '#fff', display: 'flex', alignItems: 'center', gap: 6 }} disabled={guardando} onClick={guardar}>
+                  <CheckIcon size={14} /> {guardando ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </div>
