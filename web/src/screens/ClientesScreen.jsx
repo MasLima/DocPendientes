@@ -595,7 +595,7 @@ export default function ClientesScreen() {
         <ModalEnvioVencimiento
           clientes={modalEnvio.clientes}
           rango={rangoExpandido}
-          mensajeTemplate={rangos[rangoExpandido]?.mensaje_template || ''}
+          mensajeTemplate={vencimientos?.rangos?.[rangoExpandido]?.mensaje_template || ''}
           onClose={() => setModalEnvio(null)}
           onEnviado={() => { setModalEnvio(null); setDocsSeleccionados([]); cargarVencimientos(); }}
           token={token}
