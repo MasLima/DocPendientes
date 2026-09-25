@@ -6,6 +6,7 @@ import Exportar from '../components/Exportar';
 
 const PROCESOS = [
   { clave: 'maestros', etiqueta: 'Maestros (vendedores y clientes)' },
+  { clave: 'asignaciones', etiqueta: 'Asignación de clientes por ventas' },
   { clave: 'condiciones', etiqueta: 'Condiciones de pago' },
   { clave: 'tipos', etiqueta: 'Tipos de documento' },
   { clave: 'bancos', etiqueta: 'Bancos' },
@@ -54,6 +55,7 @@ export default function ConfigSyncScreen() {
       const res = r.resultados || {};
       const partes = [];
       if (res.maestros) partes.push(`Vendedores: ${res.maestros.vendedores} | Clientes: ${res.maestros.clientes}`);
+      if (res.asignaciones) partes.push(`Asignaciones: ${res.asignaciones.actualizados} actualizados`);
       if (res.condiciones) partes.push(`Condiciones: ${res.condiciones.condiciones}`);
       if (res.tipos) partes.push(`Tipos: ${res.tipos.tipos}`);
       if (res.bancos) partes.push(`Bancos: ${res.bancos.bancos}`);

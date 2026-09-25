@@ -609,6 +609,60 @@ async function syncUsuarios() {
   return { usuarios: creados + actualizados, creados, actualizados, desactivados };
 }
 
+// ==================== ASIGNACION DE CLIENTES POR VENTAS ====================
+// Actualiza clientes.ter_core con el vendedor que le vendio mas recientemente
+// (mlofac011, ultimo ano, ven_stat != '80').
+// Regla: por cada cliente gana el vendedor de su venta mas reciente.
+// Solo asigna si el vendedor existe en la tabla vendedores.
+// Se ejecuta DEPUES de maestros (maestros reescribe ter_core desde el ERP).
+
+async function syncAsignacionesVentas() {
+  const [ventas] = await erp.query(
+    `SELECT ven_cote, ven_core, MAX(ven_feem) AS ultima_venta
+     FROM mlofac011
+     WHERE ven_feem BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 1 YEAR) AND CURRENT_DATE()
+       AND ven_stat != '80'
+       AND ven_cote IS NOT NULL AND ven_cote != ''
+       AND ven_core IS NOT NULL AND ven_core != ''
+     GROUP BY ven_cote, ven_core
+     ORDER BY ven_cote, ultima_venta DESC`
+  );
+
+  // Vendedores validos de la app
+  const [vends] = await app.query('SELECT ter_cote FROM vendedores');
+  const vendsSet = new Set(vends.map((v) => v.ter_cote));
+
+  // Por cliente, la PRIMERA fila es su venta mas reciente (ORDER BY ... DESC)
+  const asignaciones = new Map();
+  for (const v of ventas) {
+    const cote = String(v.ven_cote).trim();
+    const core = String(v.ven_core).trim();
+    if (!asignaciones.has(cote)) asignaciones.set(cote, core);
+  }
+
+  let actualizados = 0, sinCambio = 0, sinVendedor = 0, errores = 0;
+  for (const [cliente, vendedor] of asignaciones) {
+    if (!vendsSet.has(vendedor)) { sinVendedor++; continue; }
+    try {
+      const [r] = await app.query(
+        `UPDATE clientes SET ter_core = ?
+         WHERE ter_cote = ? AND (ter_core IS NULL OR ter_core <> ?)`,
+        [vendedor, cliente, vendedor]
+      );
+      if (r.affectedRows > 0) actualizados++; else sinCambio++;
+    } catch (e) {
+      errores++;
+      console.error(`Sync asignacion cliente=${cliente} vendedor=${vendedor} error:`, e.message);
+    }
+  }
+
+  const detalle =
+    `asignados=${actualizados} sin_cambio=${sinCambio}` +
+    ` vendedor_no_existe=${sinVendedor}${errores > 0 ? ` err=${errores}` : ''}`;
+  await logSync('ASIGNACIONES', actualizados, errores > 0 ? 'PARCIAL' : 'OK', detalle);
+  return { actualizados, sin_cambio: sinCambio, vendedor_no_existe: sinVendedor };
+}
+
 // ==================== ORQUESTADOR PRINCIPAL ====================
 
 const FUNCIONES_PARCIAL = {
@@ -638,8 +692,11 @@ const FUNCIONES_COMPLETO = {
 //   Documentos siempre es completo, incidencias/usuarios siempre son incrementales.
 //   INCIDENCIAS: solo sincroniza ERP → App (no envía desde la app al ERP).
 async function syncCompleto(procesos = null, modo = 'parcial') {
-  const validos = ['maestros', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'compras', 'precios'];
-  const seleccion = procesos && procesos.length ? procesos : validos;
+  // Orden fijo: maestros reescribe ter_core y asignaciones lo corrige despues.
+  const validos = ['maestros', 'asignaciones', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'compras', 'precios'];
+  const seleccion = (procesos && procesos.length ? procesos : validos)
+    .filter((p) => validos.includes(p))
+    .sort((a, b) => validos.indexOf(a) - validos.indexOf(b));
   const resultados = {};
 
   for (const proc of seleccion) {
@@ -649,6 +706,8 @@ async function syncCompleto(procesos = null, modo = 'parcial') {
       resultados.incidencias = await syncIncidencias();
     } else if (proc === 'usuarios') {
       resultados.usuarios = await syncUsuarios();
+    } else if (proc === 'asignaciones') {
+      resultados.asignaciones = await syncAsignacionesVentas();
     } else if (modo === 'completo' && FUNCIONES_COMPLETO[proc]) {
       resultados[proc] = await FUNCIONES_COMPLETO[proc]();
     } else if (FUNCIONES_PARCIAL[proc]) {
@@ -670,5 +729,6 @@ module.exports = {
   syncDocumentos,
   syncIncidencias,
   syncUsuarios,
+  syncAsignacionesVentas,
   syncCompleto
 };

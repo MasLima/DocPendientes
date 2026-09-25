@@ -91,6 +91,7 @@ export function ConfigSyncScreen() {
       Alert.alert('Sync completado',
         `Vendedores: ${r.resultados?.maestros?.vendedores}\n` +
         `Clientes: ${r.resultados?.maestros?.clientes}\n` +
+        `Asignaciones: ${r.resultados?.asignaciones?.actualizados}\n` +
         `Documentos pendientes: ${r.resultados?.documentos?.documentos}\n` +
         `Incidencias nuevas: ${r.resultados?.incidencias?.incidencias}\n` +
         `Incidencias actualizadas: ${r.resultados?.incidencias?.actualizadas}\n` +
@@ -107,7 +108,8 @@ export function ConfigSyncScreen() {
     <ScrollView style={[styles.panel, { backgroundColor: tema.fondo }]}>
       <Text style={[styles.parrafo, { color: tema.textoSuave }]}>
         Sincroniza los datos desde el ERP: maestros (vendedores y clientes),
-        documentos pendientes, incidencias (solo ERP → App), artículos y compras.
+        asignación de clientes por ventas, documentos pendientes,
+        incidencias (solo ERP → App), artículos y compras.
         Puedes ejecutarla en cualquier momento, además de la programada.
       </Text>
 
