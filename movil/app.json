@@ -28,6 +28,7 @@
     "plugins": [
       "@react-native-community/datetimepicker",
       "./plugins/withCleartextTraffic",
+      "./plugins/withAbiFilters",
       [
         "expo-speech-recognition",
         {
