@@ -3,11 +3,14 @@ const pool = require('../config/db');
 
 // Construye el WHERE comun del listado de clientes segun el rol y los filtros.
 // Devuelve { where, params, puedeTodos } listos para usar en un query.
-function filtroClientes(req, alias = 'c') {
+// opts.todos: habilita ?todos=1 para ignorar la cartera del vendedor (busqueda
+// de cualquier cliente al registrar incidencias a clientes no asignados).
+function filtroClientes(req, alias = 'c', opts = {}) {
   const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
+  const porParametro = !!opts.todos && req.query.todos === '1';
   const params = [];
   const where = [];
-  if (!puedeTodos) {
+  if (!puedeTodos && !porParametro) {
     where.push(`${alias}.ter_core = ?`);
     params.push(req.user.ter_cote);
   } else if (req.query.vendedor) {
@@ -29,11 +32,13 @@ function filtroClientes(req, alias = 'c') {
 // - Con permiso 'clientes.ver_todos' (admin/empleado): todos.
 // - Sin el permiso (vendedor): solo los de su cartera (ter_core).
 // - ?q=texto          filtra por nombre o codigo (para buscar al crear incidencias).
+// - ?todos=1          ignora la cartera del vendedor: busca cualquier cliente
+//                     (para registrar incidencias a clientes no asignados).
 // - ?vendedor=1,2,3   filtra por uno o varios vendedores (solo para quien ve todos).
 // Incluye el saldo pendiente por cliente (soles y dolares).
 router.get('/', async (req, res) => {
   try {
-    const { where, params } = filtroClientes(req);
+    const { where, params } = filtroClientes(req, 'c', { todos: true });
     const sql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     // El listado general trae todos los clientes; la busqueda ?q= se limita
     // a 100 para que el buscador en vivo siga siendo rapido.

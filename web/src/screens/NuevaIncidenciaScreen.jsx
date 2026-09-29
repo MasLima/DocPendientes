@@ -12,6 +12,8 @@ export default function NuevaIncidenciaScreen() {
 
   const clienteInicial = searchParams.get('cliente') || '';
   const nombreInicial = searchParams.get('nombre') || '';
+  // Modo "otros clientes": la busqueda ignora la cartera del vendedor (?todos=1).
+  const otrosClientes = searchParams.get('otros') === '1';
 
   const [cliente, setCliente] = useState(clienteInicial);
   const [nombreCliente, setNombreCliente] = useState(nombreInicial);
@@ -27,12 +29,12 @@ export default function NuevaIncidenciaScreen() {
     let activo = true;
     const delay = setTimeout(async () => {
       try {
-        const data = await apiGet(`/clientes?q=${encodeURIComponent(busqueda)}`, token);
+        const data = await apiGet(`/clientes?q=${encodeURIComponent(busqueda)}${otrosClientes ? '&todos=1' : ''}`, token);
         if (activo) setClientes(Array.isArray(data) ? data : data.value || []);
       } catch { /* noop */ }
     }, 350);
     return () => { activo = false; clearTimeout(delay); };
-  }, [busqueda, nombreCliente, token]);
+  }, [busqueda, nombreCliente, otrosClientes, token]);
 
   const guardar = async (e) => {
     e.preventDefault();
@@ -63,6 +65,12 @@ export default function NuevaIncidenciaScreen() {
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
       <button className="btn btn-ghost" style={{ marginBottom: 12 }} onClick={() => navigate(-1)}>← Volver</button>
       <h2 style={{ margin: '0 0 16px', fontSize: 20 }}>Nueva incidencia</h2>
+
+      {otrosClientes && (
+        <div style={{ marginBottom: 14, padding: '8px 12px', background: 'rgba(133,193,233,0.15)', border: '1px solid var(--celeste)', borderRadius: 6, fontSize: 13 }}>
+          Incidencia para <strong>otros clientes</strong> — la búsqueda incluye clientes que no tienes asignados.
+        </div>
+      )}
 
       <form onSubmit={guardar}>
         <div style={{ marginBottom: 14 }}>

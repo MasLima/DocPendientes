@@ -200,6 +200,14 @@ export default function IncidenciasScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* Incidencia a clientes no asignados */}
+        <TouchableOpacity
+          style={[styles.btnOtros, { borderColor: tema.celeste }]}
+          onPress={() => navigation.navigate('NuevaIncidencia', { otros: true })}
+        >
+          <Text style={[styles.btnOtrosText, { color: tema.celeste }]}>+ Incidencia a otros clientes</Text>
+        </TouchableOpacity>
+
         {/* Filtros expandibles */}
         {showFiltros && pestana === 'historial' && (
           <View style={[styles.filtros, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}>
@@ -306,6 +314,8 @@ const styles = StyleSheet.create({
   btnRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   btnNueva: { flex: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
   btnNuevaText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  btnOtros: { borderRadius: 8, borderWidth: 1, paddingVertical: 10, alignItems: 'center', marginBottom: 10 },
+  btnOtrosText: { fontSize: 13, fontWeight: '700' },
   btnFiltro: { flex: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center', borderWidth: 1 },
   filtros: { borderRadius: 8, borderWidth: 1, padding: 12, marginBottom: 10 },
   filtrosGrid: { flexDirection: 'row', gap: 10 },

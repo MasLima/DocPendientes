@@ -49,7 +49,9 @@ function ControlesNota({ uri, onEliminar }) {
 export default function NuevaIncidenciaScreen({ route, navigation }) {
   const { token, user } = useAuth();
   const { tema } = useTema();
-  const { ter_cote, ter_deno } = route.params || {};
+  const { ter_cote, ter_deno, otros } = route.params || {};
+  // Modo "otros clientes": la busqueda ignora la cartera del vendedor (?todos=1).
+  const otrosClientes = !!otros;
 
   const [cliente, setCliente] = useState(ter_cote || '');
   const [nombreCliente, setNombreCliente] = useState(ter_deno || '');
@@ -75,14 +77,14 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
     if (!busqueda.trim()) return;
     setBuscando(true);
     try {
-      const data = await apiGet(`/clientes?q=${encodeURIComponent(busqueda)}`, token);
+      const data = await apiGet(`/clientes?q=${encodeURIComponent(busqueda)}${otrosClientes ? '&todos=1' : ''}`, token);
       setClientes(Array.isArray(data) ? data : data.value || []);
     } catch (err) {
       Alert.alert('Error', err.message);
     } finally {
       setBuscando(false);
     }
-  }, [busqueda, token]);
+  }, [busqueda, otrosClientes, token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -266,6 +268,11 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
     >
       <ScrollView style={[styles.container, { backgroundColor: tema.fondo }]} contentContainerStyle={styles.content}>
         <Text style={[styles.label, { color: tema.primario }]}>Cliente (obligatorio)</Text>
+        {otrosClientes && (
+          <Text style={[styles.avisoOtros, { backgroundColor: `${tema.celeste}22`, color: tema.primario }]}>
+            Buscando en todos los clientes (incluye no asignados)
+          </Text>
+        )}
         {nombreCliente ? (
           <View style={[styles.clienteElegido, { backgroundColor: tema.gridHeader }]}>
             <Text style={[styles.clienteElegidoNombre, { color: tema.texto }]}>{nombreCliente} ({cliente})</Text>
@@ -403,6 +410,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 6, marginTop: 8 },
+  avisoOtros: { fontSize: 12, fontWeight: '600', padding: 6, borderRadius: 6, textAlign: 'center', marginBottom: 6 },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

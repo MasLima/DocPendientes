@@ -240,11 +240,16 @@ export default function IncidenciasScreen() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
         <h2 style={{ margin: 0, fontSize: 20 }}>Incidencias</h2>
-        <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff', height: 40 }} onClick={() => navigate('/incidencias/nueva')}>
-          <PlusIcon size={20} /> Registrar incidencia
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff', height: 40 }} onClick={() => navigate('/incidencias/nueva')}>
+            <PlusIcon size={20} /> Registrar incidencia
+          </button>
+          <button className="btn btn-ghost" style={{ border: '1px solid var(--celeste)', color: 'var(--celeste)', height: 40 }} onClick={() => navigate('/incidencias/nueva?otros=1')}>
+            <PeopleIcon size={18} /> Incidencia a otros clientes
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
