@@ -298,7 +298,7 @@ export default function IncidenciasScreen() {
           </div>
           <table className="tabla">
           <thead>
-            <tr><th>#</th><th>Cliente</th><th>Vendedor</th><th>Descripción</th><th>Fecha</th><th>Estado</th></tr>
+            <tr><th>#</th><th>Cliente</th><th>Vendedor</th><th>Descripción</th><th>Fecha</th><th>Estado</th><th style={{ width: 60 }}>Acción</th></tr>
           </thead>
           <tbody>
             {(mostrarHistorial ? incidencias : incidencias.slice(0, POR_PAGINA_INC)).map((it) => (
@@ -309,6 +309,18 @@ export default function IncidenciasScreen() {
                 <td style={{ maxWidth: 320 }}>{it.inc_desc}</td>
                 <td className="mono">{it.fe_regi}</td>
                 <td><span className="badge" style={{ backgroundColor: estadoColor(it.inc_estc) }}>{estadoTexto(it.inc_estc)}</span></td>
+                <td>
+                  {!it.inc_codi_erp && (
+                    <button
+                      className="btn btn-ghost"
+                      title="Editar incidencia"
+                      style={{ padding: '4px 8px', fontSize: 14 }}
+                      onClick={() => navigate(`/incidencias/nueva?editar=${it.inc_codi}`)}
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

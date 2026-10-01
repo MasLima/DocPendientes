@@ -81,6 +81,23 @@ router.get('/vendedores', async (req, res) => {
   }
 });
 
+// Tipos de documento para el filtro de Vencimientos (solo los que tienen
+// documentos pendientes, para no mostrar decenas de opciones vacias).
+router.get('/tipos-documento', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT DISTINCT td.cob_codo, td.doc_descripcion
+       FROM tipos_documento td
+       INNER JOIN vw_documentos_pendientes d ON d.cob_codo = td.cob_codo
+       ORDER BY td.doc_descripcion`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Resumen por CLIENTE (no por documento):
 //   - cronograma:    saldo del cliente en cada rango de vencimiento
 //   - antiguedad:    saldo del cliente en cada rango de dias vencidos
@@ -223,6 +240,7 @@ router.get('/resumen', async (req, res) => {
 // GET /api/clientes/vencimientos
 // Agrupa documentos por rango de vencimiento segun config_vencimientos.
 // Retorna por cada rango: documentos, cantidad, saldo, y si ya fue enviado.
+// ?tipo_documento=XX  filtra por tipo de documento (cob_codo).
 router.get('/vencimientos', async (req, res) => {
   try {
     const { where, params } = filtroClientes(req, 'c');
@@ -233,8 +251,16 @@ router.get('/vencimientos', async (req, res) => {
     );
     if (rangos.length === 0) return res.json({ rangos: {}, total: { cantidad: 0, saldo_pen: 0 } });
 
-    const filtro = req.query.vendedor ? ' AND d.vendedor_codigo = ?' : '';
-    const filtroParams = req.query.vendedor ? [req.query.vendedor] : [];
+    let filtro = '';
+    const filtroParams = [];
+    if (req.query.vendedor) {
+      filtro += ' AND d.vendedor_codigo = ?';
+      filtroParams.push(req.query.vendedor);
+    }
+    if (req.query.tipo_documento) {
+      filtro += ' AND d.cob_codo = ?';
+      filtroParams.push(req.query.tipo_documento);
+    }
 
     const [docs] = await pool.query(
       `SELECT d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums,

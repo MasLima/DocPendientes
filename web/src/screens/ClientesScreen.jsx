@@ -60,6 +60,8 @@ export default function ClientesScreen() {
   const [modalConfig, setModalConfig] = useState(false);
   const [configRangos, setConfigRangos] = useState([]);
   const [editandoRango, setEditandoRango] = useState(null);
+  const [tiposDoc, setTiposDoc] = useState([]);
+  const [tipoDocSel, setTipoDocSel] = useState('');
 
   const seleccionarTipoRango = (tipo) => {
     setTipoRangoAnti(tipo);
@@ -109,13 +111,21 @@ export default function ClientesScreen() {
       setVencError('');
       const params = new URLSearchParams();
       if (vendedoresSel.length > 0) params.set('vendedor', vendedoresSel.join(','));
+      if (tipoDocSel) params.set('tipo_documento', tipoDocSel);
       const data = await apiGet(`/clientes/vencimientos?${params.toString()}`, token);
       setVencimientos(data);
     } catch (err) {
       console.error('Error cargando vencimientos:', err);
       setVencError(err.message);
     }
-  }, [token, vendedoresSel]);
+  }, [token, vendedoresSel, tipoDocSel]);
+
+  // Tipos de documento con pendientes (para el filtro de Vencimientos)
+  useEffect(() => {
+    apiGet('/clientes/tipos-documento', token)
+      .then((data) => setTiposDoc(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [token]);
 
   // Cargar config de rangos
   const cargarConfigRangos = useCallback(async () => {
@@ -585,6 +595,9 @@ export default function ClientesScreen() {
                 configRangos={configRangos}
                 setModalConfig={setModalConfig}
                 setEditandoRango={setEditandoRango}
+                tiposDoc={tiposDoc}
+                tipoDocSel={tipoDocSel}
+                setTipoDocSel={setTipoDocSel}
               />
             </div>
           )}
@@ -616,7 +629,7 @@ export default function ClientesScreen() {
 }
 
 // ===================== VencimientosTab =====================
-function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpandido, docsSeleccionados, setDocsSeleccionados, onEnviarWhatsApp, cargando, configRangos, setModalConfig, setEditandoRango }) {
+function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpandido, docsSeleccionados, setDocsSeleccionados, onEnviarWhatsApp, cargando, configRangos, setModalConfig, setEditandoRango, tiposDoc, tipoDocSel, setTipoDocSel }) {
   const { token } = useAuth();
 
   if (cargando) return <div className="vacio">Cargando vencimientos...</div>;
@@ -672,9 +685,23 @@ function VencimientosTab({ vencimientos, vencError, rangoExpandido, setRangoExpa
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <div className="mutado">
-          Total: {total.cantidad} documentos · S/ {fmt(total.saldo_pen)} · Evaluado al {fmtFecha(new Date())}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <select
+            className="input"
+            style={{ height: 36, fontSize: 13, width: 'auto', minWidth: 240, maxWidth: 340 }}
+            value={tipoDocSel}
+            onChange={(e) => setTipoDocSel(e.target.value)}
+            title="Filtrar por tipo de documento"
+          >
+            <option value="">Todos los tipos de documento</option>
+            {(tiposDoc || []).map((t) => (
+              <option key={t.cob_codo} value={t.cob_codo}>{t.doc_descripcion || t.cob_codo}</option>
+            ))}
+          </select>
+          <div className="mutado">
+            Total: {total.cantidad} documentos · S/ {fmt(total.saldo_pen)} · Evaluado al {fmtFecha(new Date())}
+          </div>
         </div>
         <button
           className="btn btn-ghost"

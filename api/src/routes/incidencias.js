@@ -238,6 +238,58 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Editar una incidencia (solo la propia o con permiso 'incidencias.ver_todas').
+// Body: { inc_desc, inc_acci?, inc_estc? }
+// Las incidencias originadas en el ERP (inc_codi_erp) NO se editan porque
+// la sincronizacion ERP -> App las sobreescribiria en la proxima corrida.
+router.put('/:codi', async (req, res) => {
+  try {
+    const codi = parseInt(req.params.codi, 10);
+    if (!codi || isNaN(codi)) {
+      return res.status(400).json({ error: 'Codigo de incidencia invalido' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT inc_codi, use_emno, inc_codi_erp FROM incidencias WHERE inc_codi = ?',
+      [codi]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Incidencia no encontrada' });
+    }
+    const inc = rows[0];
+
+    const puedeTodas = req.user.permisos && req.user.permisos.includes('incidencias.ver_todas');
+    if (!puedeTodas && inc.use_emno !== req.user.ter_cote) {
+      return res.status(403).json({ error: 'No tienes permiso para editar esta incidencia' });
+    }
+    if (inc.inc_codi_erp) {
+      return res.status(400).json({ error: 'Incidencia proveniente del ERP: no es editable (la sincronizacion la sobreescribiria)' });
+    }
+
+    const { inc_desc, inc_acci, inc_estc } = req.body;
+    if (!inc_desc || !String(inc_desc).trim()) {
+      return res.status(400).json({ error: 'Se requiere inc_desc' });
+    }
+    if (inc_estc !== undefined && inc_estc !== null && inc_estc !== '' && ![1, 2, 3].includes(Number(inc_estc))) {
+      return res.status(400).json({ error: 'Estado invalido (1=Registrada, 2=En proceso, 3=Resuelta)' });
+    }
+
+    const campos = ['inc_desc = ?', 'inc_acci = ?'];
+    const params = [String(inc_desc).trim(), inc_acci ? String(inc_acci).trim() : null];
+    if (inc_estc !== undefined && inc_estc !== null && inc_estc !== '') {
+      campos.push('inc_estc = ?');
+      params.push(Number(inc_estc));
+    }
+    params.push(codi);
+
+    await pool.query(`UPDATE incidencias SET ${campos.join(', ')} WHERE inc_codi = ?`, params);
+    res.json({ ok: true, message: 'Incidencia actualizada' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // ============================================================
 // NOTA DE VOZ (audio opcional de la incidencia)
 // El archivo se guarda con nombre {inc_codi}.{ext} en

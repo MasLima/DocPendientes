@@ -6,8 +6,9 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../context/ThemeContext';
-import { apiPost, apiGet } from '../api/client';
+import { apiPost, apiGet, apiPut } from '../api/client';
 import API_URL from '../config';
+import SelectorEmoji from '../components/SelectorEmoji';
 import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent
@@ -21,6 +22,12 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync
 } from 'expo-audio';
+
+const ESTADOS = [
+  { valor: 1, texto: 'Registrada' },
+  { valor: 2, texto: 'En proceso' },
+  { valor: 3, texto: 'Resuelta' }
+];
 
 // ===================== Reproductor de nota de voz =====================
 function ControlesNota({ uri, onEliminar }) {
@@ -49,9 +56,11 @@ function ControlesNota({ uri, onEliminar }) {
 export default function NuevaIncidenciaScreen({ route, navigation }) {
   const { token, user } = useAuth();
   const { tema } = useTema();
-  const { ter_cote, ter_deno, otros } = route.params || {};
+  const { ter_cote, ter_deno, otros, editar } = route.params || {};
   // Modo "otros clientes": la busqueda ignora la cartera del vendedor (?todos=1).
   const otrosClientes = !!otros;
+  // Modo edicion
+  const editarId = editar ? String(editar) : '';
 
   const [cliente, setCliente] = useState(ter_cote || '');
   const [nombreCliente, setNombreCliente] = useState(ter_deno || '');
@@ -60,7 +69,16 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
   const [busqueda, setBusqueda] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [accion, setAccion] = useState('');
+  const [estado, setEstado] = useState(1);
+  const [origenErp, setOrigenErp] = useState(false);
+  const [cargandoEdicion, setCargandoEdicion] = useState(!!editar);
   const [guardando, setGuardando] = useState(false);
+
+  // Cursor de los textos (para insertar emoji en la posicion correcta)
+  const selDescRef = useRef({ start: 0, end: 0 });
+  const selAccionRef = useRef({ start: 0, end: 0 });
+  const [selDescPost, setSelDescPost] = useState(null);
+  const [selAccionPost, setSelAccionPost] = useState(null);
 
   // ---- Dictado voz→texto ----
   const [dictando, setDictando] = useState(null); // 'desc' | 'accion' | null
@@ -91,6 +109,52 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
       if (!ter_cote) buscarClientes();
     }, [ter_cote, buscarClientes])
   );
+
+  // Titulo segun modo
+  useEffect(() => {
+    navigation.setOptions({ title: editarId ? 'Editar Incidencia' : 'Nueva Incidencia' });
+  }, [editarId, navigation]);
+
+  // Carga de la incidencia a editar
+  useEffect(() => {
+    if (!editarId) return;
+    let activo = true;
+    (async () => {
+      try {
+        const inc = await apiGet(`/incidencias/${editarId}`, token);
+        if (!activo) return;
+        setCliente(inc.ter_cote || '');
+        setNombreCliente(inc.cliente_nombre || inc.ter_cote || '');
+        setDescripcion(inc.inc_desc || '');
+        setAccion(inc.inc_acci || '');
+        setEstado(Number(inc.inc_estc) || 1);
+        setOrigenErp(!!inc.inc_codi_erp);
+        if (inc.inc_codi_erp) {
+          Alert.alert('No editable', 'Incidencia proveniente del ERP: no es editable.');
+        }
+      } catch (err) {
+        if (activo) Alert.alert('Error', err.message);
+      } finally {
+        if (activo) setCargandoEdicion(false);
+      }
+    })();
+    return () => { activo = false; };
+  }, [editarId, token]);
+
+  // Inserta un emoji en el cursor del texto correspondiente.
+  const insertarEmoji = (campo, emoji) => {
+    const esDesc = campo === 'desc';
+    const valor = esDesc ? descripcion : accion;
+    const setter = esDesc ? setDescripcion : setAccion;
+    const ref = esDesc ? selDescRef : selAccionRef;
+    const setPost = esDesc ? setSelDescPost : setSelAccionPost;
+    const { start, end } = ref.current;
+    const ini = Math.min(start, valor.length);
+    const fin = Math.min(end, valor.length);
+    const nuevo = valor.slice(0, ini) + emoji + valor.slice(fin);
+    setter(nuevo);
+    setPost({ start: ini + emoji.length, end: ini + emoji.length });
+  };
 
   // Detener dictado al salir de la pantalla
   useEffect(() => {
@@ -213,15 +277,30 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
       Alert.alert('Campos requeridos', 'La descripción es obligatoria');
       return;
     }
+    if (origenErp) {
+      Alert.alert('No editable', 'Incidencia proveniente del ERP: no es editable.');
+      return;
+    }
     setGuardando(true);
     try {
-      const data = await apiPost('/incidencias', {
-        ter_cote: cliente,
-        inc_desc: descripcion.trim(),
-        inc_acci: accion.trim()
-      }, token);
+      let codiAudio = null;
+      if (editarId) {
+        await apiPut(`/incidencias/${editarId}`, {
+          inc_desc: descripcion.trim(),
+          inc_acci: accion.trim(),
+          inc_estc: Number(estado)
+        }, token);
+        codiAudio = editarId;
+      } else {
+        const data = await apiPost('/incidencias', {
+          ter_cote: cliente,
+          inc_desc: descripcion.trim(),
+          inc_acci: accion.trim()
+        }, token);
+        codiAudio = data.inc_codi;
+      }
 
-      // Subir nota de voz si existe (la incidencia ya está creada)
+      // Subir nota de voz si existe (la incidencia ya está creada/editada)
       if (notaUri) {
         try {
           const formData = new FormData();
@@ -233,24 +312,24 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
             name: `nota.${ext}`,
             type: mimeTipo
           });
-          const res = await fetch(`${API_URL}/incidencias/${data.inc_codi}/audio`, {
+          const res = await fetch(`${API_URL}/incidencias/${codiAudio}/audio`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${token}` },
             body: formData
           });
           if (!res.ok) {
-            Alert.alert('Incidencia guardada', 'La incidencia se guardó pero no se pudo subir la nota de voz.');
+            Alert.alert(editarId ? 'Actualizada' : 'Guardada', 'La incidencia se guardó pero no se pudo subir la nota de voz.');
             navigation.goBack();
             return;
           }
         } catch (audioErr) {
-          Alert.alert('Incidencia guardada', 'La incidencia se guardó pero no se pudo subir la nota de voz.');
+          Alert.alert(editarId ? 'Actualizada' : 'Guardada', 'La incidencia se guardó pero no se pudo subir la nota de voz.');
           navigation.goBack();
           return;
         }
       }
 
-      Alert.alert('Registrado', 'Incidencia guardada correctamente');
+      Alert.alert(editarId ? 'Actualizada' : 'Registrado', editarId ? 'Incidencia actualizada correctamente' : 'Incidencia guardada correctamente');
       navigation.goBack();
     } catch (err) {
       Alert.alert('Error', err.message);
@@ -260,6 +339,14 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
 
   const micActivo = dictando !== null;
   const micRojo = '#e74c3c';
+
+  if (cargandoEdicion) {
+    return (
+      <View style={[styles.flex, { backgroundColor: tema.fondo, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: tema.textoSuave, fontSize: 14 }}>Cargando incidencia...</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -276,7 +363,7 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
         {nombreCliente ? (
           <View style={[styles.clienteElegido, { backgroundColor: tema.gridHeader }]}>
             <Text style={[styles.clienteElegidoNombre, { color: tema.texto }]}>{nombreCliente} ({cliente})</Text>
-            {!ter_cote && (
+            {!ter_cote && !editarId && (
               <TouchableOpacity onPress={() => { setCliente(''); setNombreCliente(''); }}>
                 <Text style={[styles.cambiar, { color: tema.azul }]}>Cambiar</Text>
               </TouchableOpacity>
@@ -316,23 +403,31 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Descripción + micrófono */}
+        {/* Descripción + micrófono + emojis */}
         <View style={styles.labelRow}>
           <Text style={[styles.label, { color: tema.primario, marginBottom: 0 }]}>Descripción de la visita *</Text>
-          <TouchableOpacity
-            style={[
-              styles.btnMic,
-              dictando === 'desc' && { backgroundColor: micRojo }
-            ]}
-            onPress={() => toggleDictado('desc')}
-          >
-            <Text style={styles.btnMicIcono}>{dictando === 'desc' ? '■' : '🎙'}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <SelectorEmoji color={tema.celeste} onInsert={(e) => insertarEmoji('desc', e)} />
+            <TouchableOpacity
+              style={[
+                styles.btnMic,
+                dictando === 'desc' && { backgroundColor: micRojo }
+              ]}
+              onPress={() => toggleDictado('desc')}
+            >
+              <Text style={styles.btnMicIcono}>{dictando === 'desc' ? '■' : '🎙'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <TextInput
           style={[styles.input, styles.textArea, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
           value={descripcion}
           onChangeText={setDescripcion}
+          selection={selDescPost || undefined}
+          onSelectionChange={(e) => {
+            selDescRef.current = e.nativeEvent.selection;
+            if (selDescPost) setSelDescPost(null);
+          }}
           placeholder={dictando === 'desc' ? 'Escuchando...' : 'Describe lo encontrado en la visita...'}
           placeholderTextColor={dictando === 'desc' ? micRojo : tema.textoSuave}
           multiline
@@ -341,29 +436,63 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
           <Text style={[styles.previewDictado, { color: micRojo }]}>{previewDictado}</Text>
         )}
 
-        {/* Acción + micrófono */}
+        {/* Acción + micrófono + emojis */}
         <View style={styles.labelRow}>
           <Text style={[styles.label, { color: tema.primario, marginBottom: 0 }]}>Acción / gestión realizada</Text>
-          <TouchableOpacity
-            style={[
-              styles.btnMic,
-              dictando === 'accion' && { backgroundColor: micRojo }
-            ]}
-            onPress={() => toggleDictado('accion')}
-          >
-            <Text style={styles.btnMicIcono}>{dictando === 'accion' ? '■' : '🎙'}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <SelectorEmoji color={tema.celeste} onInsert={(e) => insertarEmoji('accion', e)} />
+            <TouchableOpacity
+              style={[
+                styles.btnMic,
+                dictando === 'accion' && { backgroundColor: micRojo }
+              ]}
+              onPress={() => toggleDictado('accion')}
+            >
+              <Text style={styles.btnMicIcono}>{dictando === 'accion' ? '■' : '🎙'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <TextInput
           style={[styles.input, styles.textArea, { backgroundColor: tema.tarjeta, borderColor: tema.borde, color: tema.texto }]}
           value={accion}
           onChangeText={setAccion}
+          selection={selAccionPost || undefined}
+          onSelectionChange={(e) => {
+            selAccionRef.current = e.nativeEvent.selection;
+            if (selAccionPost) setSelAccionPost(null);
+          }}
           placeholder={dictando === 'accion' ? 'Escuchando...' : 'Compromiso, promesa de pago, observaciones...'}
           placeholderTextColor={dictando === 'accion' ? micRojo : tema.textoSuave}
           multiline
         />
         {dictando === 'accion' && !!previewDictado && (
           <Text style={[styles.previewDictado, { color: micRojo }]}>{previewDictado}</Text>
+        )}
+
+        {/* Estado (solo modo edición) */}
+        {editarId && (
+          <View>
+            <Text style={[styles.label, { color: tema.primario }]}>Estado</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {ESTADOS.map((s) => (
+                <TouchableOpacity
+                  key={s.valor}
+                  style={[
+                    styles.chipEstado,
+                    {
+                      borderColor: Number(estado) === s.valor ? tema.celeste : tema.borde,
+                      backgroundColor: Number(estado) === s.valor ? `${tema.celeste}33` : tema.tarjeta
+                    }
+                  ]}
+                  onPress={() => setEstado(s.valor)}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: Number(estado) === s.valor ? '700' : '400', color: tema.texto }}>
+                    {s.texto}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         )}
 
         {/* Nota de voz opcional */}
@@ -394,11 +523,13 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
         <Text style={[styles.hint, { color: tema.textoSuave }]}>Vendedor: {user ? user.use_logi : '-'}</Text>
 
         <TouchableOpacity
-          style={[styles.btnGuardar, { backgroundColor: tema.celeste }, guardando && styles.btnDisabled]}
+          style={[styles.btnGuardar, { backgroundColor: tema.celeste }, (guardando || origenErp) && styles.btnDisabled]}
           onPress={guardar}
-          disabled={guardando}
+          disabled={guardando || origenErp}
         >
-          <Text style={styles.btnGuardarText}>{guardando ? 'Guardando...' : 'Guardar incidencia'}</Text>
+          <Text style={styles.btnGuardarText}>
+            {guardando ? 'Guardando...' : editarId ? 'Guardar cambios' : 'Guardar incidencia'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -411,6 +542,7 @@ const styles = StyleSheet.create({
   content: { padding: 16 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 6, marginTop: 8 },
   avisoOtros: { fontSize: 12, fontWeight: '600', padding: 6, borderRadius: 6, textAlign: 'center', marginBottom: 6 },
+  chipEstado: { flex: 1, paddingVertical: 9, borderRadius: 8, borderWidth: 1, alignItems: 'center' },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

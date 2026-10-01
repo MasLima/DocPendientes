@@ -273,8 +273,18 @@ export default function IncidenciasScreen({ navigation }) {
                 <View style={[styles.card, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}>
                   <View style={styles.headerRow}>
                     <Text style={[styles.nro, { color: tema.primario }]}>#{item.inc_codi}</Text>
-                    <View style={[styles.estado, { backgroundColor: estadoColor(item.inc_estc) }]}>
-                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{estadoTexto(item.inc_estc)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <View style={[styles.estado, { backgroundColor: estadoColor(item.inc_estc) }]}>
+                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{estadoTexto(item.inc_estc)}</Text>
+                      </View>
+                      {!item.inc_codi_erp && (
+                        <TouchableOpacity
+                          style={[styles.btnEditar, { borderColor: tema.borde }]}
+                          onPress={() => navigation.navigate('NuevaIncidencia', { editar: item.inc_codi })}
+                        >
+                          <Text style={{ fontSize: 13 }}>✏️</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                   <Text style={[styles.cliente, { color: tema.texto }]}>{item.cliente_nombre || item.ter_cote || 'Sin cliente'}</Text>
@@ -326,6 +336,7 @@ const styles = StyleSheet.create({
   histInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   card: { borderRadius: 8, borderWidth: 1, padding: 12, marginBottom: 8 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  btnEditar: { borderWidth: 1, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: '#fff' },
   nro: { fontSize: 14, fontWeight: '700' },
   estado: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
   cliente: { fontSize: 14, fontWeight: '600', marginBottom: 2 },

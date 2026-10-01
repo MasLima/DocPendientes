@@ -61,7 +61,7 @@ function ClientesStack() {
       <Stack.Screen name="IncidenciasCliente" component={IncidenciasClienteScreen}
         options={({ route }) => opcionesHeader(`Incidencias: ${route.params?.ter_deno || route.params?.ter_cote || ''}`)} />
       <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
-        options={opcionesHeader('Nueva Incidencia')} />
+        options={({ route }) => opcionesHeader(route.params?.editar ? 'Editar Incidencia' : 'Nueva Incidencia')} />
     </Stack.Navigator>
   );
 }
@@ -75,7 +75,7 @@ function ReportesStack() {
       <Stack.Screen name="IncidenciasCliente" component={IncidenciasClienteScreen}
         options={({ route }) => opcionesHeader(`Incidencias: ${route.params?.ter_deno || route.params?.ter_cote || ''}`)} />
       <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
-        options={opcionesHeader('Nueva Incidencia')} />
+        options={({ route }) => opcionesHeader(route.params?.editar ? 'Editar Incidencia' : 'Nueva Incidencia')} />
     </Stack.Navigator>
   );
 }
@@ -89,7 +89,7 @@ function IncidenciasStack() {
       <Stack.Screen name="ElegirCliente" component={ElegirClienteScreen}
         options={opcionesHeader('Elegir cliente')} />
       <Stack.Screen name="NuevaIncidencia" component={NuevaIncidenciaScreen}
-        options={opcionesHeader('Nueva Incidencia')} />
+        options={({ route }) => opcionesHeader(route.params?.editar ? 'Editar Incidencia' : 'Nueva Incidencia')} />
     </Stack.Navigator>
   );
 }
