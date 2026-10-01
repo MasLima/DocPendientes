@@ -16,14 +16,28 @@ app.use(fileUpload({ limits: { fileSize: 50 * 1024 * 1024 } }));
 app.use(express.static(path.join(__dirname, '../../web/dist')));
 
 // Descarga APK - sin autenticacion
+// Sirve SIEMPRE la version mas reciente (por version del nombre o fecha del archivo)
 app.get('/api/download/apk', (req, res) => {
   const apkDir = path.join(__dirname, '../../apk');
   const files = fs.readdirSync(apkDir).filter(f => f.endsWith('.apk'));
   if (files.length === 0) return res.status(404).json({ error: 'APK no encontrado' });
-  const apkFile = path.join(apkDir, files[0]);
-  res.setHeader('Content-Disposition', `attachment; filename="${files[0]}"`);
+  const ordenados = files.map((f) => {
+    const m = f.match(/(\d+)\.(\d+)\.(\d+)/);
+    return { f, v: m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null, t: fs.statSync(path.join(apkDir, f)).mtimeMs };
+  }).sort((a, b) => {
+    if (a.v && b.v) {
+      for (let i = 0; i < 3; i++) if (a.v[i] !== b.v[i]) return b.v[i] - a.v[i];
+      return b.t - a.t;
+    }
+    if (a.v) return -1;
+    if (b.v) return 1;
+    return b.t - a.t;
+  });
+  const elegido = ordenados[0];
+  res.setHeader('Content-Disposition', `attachment; filename="${elegido.f}"`);
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  fs.createReadStream(apkFile).pipe(res);
+  res.setHeader('Content-Length', fs.statSync(path.join(apkDir, elegido.f)).size);
+  fs.createReadStream(path.join(apkDir, elegido.f)).pipe(res);
 });
 
 // Rutas publicas
