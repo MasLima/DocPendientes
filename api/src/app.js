@@ -15,15 +15,15 @@ app.use(fileUpload({ limits: { fileSize: 50 * 1024 * 1024 } }));
 // Archivos estaticos del frontend (web/dist)
 app.use(express.static(path.join(__dirname, '../../web/dist')));
 
-// Descarga APK - sin autenticacion
-// Sirve SIEMPRE la version mas reciente (por version del nombre o fecha del archivo)
-app.get('/api/download/apk', (req, res) => {
+// APK mas reciente en la carpeta apk/ (por version del nombre o fecha)
+function apkMasReciente() {
   const apkDir = path.join(__dirname, '../../apk');
   const files = fs.readdirSync(apkDir).filter(f => f.endsWith('.apk'));
-  if (files.length === 0) return res.status(404).json({ error: 'APK no encontrado' });
+  if (files.length === 0) return null;
   const ordenados = files.map((f) => {
     const m = f.match(/(\d+)\.(\d+)\.(\d+)/);
-    return { f, v: m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null, t: fs.statSync(path.join(apkDir, f)).mtimeMs };
+    const st = fs.statSync(path.join(apkDir, f));
+    return { f, ruta: path.join(apkDir, f), tamano: st.size, v: m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null, t: st.mtimeMs };
   }).sort((a, b) => {
     if (a.v && b.v) {
       for (let i = 0; i < 3; i++) if (a.v[i] !== b.v[i]) return b.v[i] - a.v[i];
@@ -33,11 +33,26 @@ app.get('/api/download/apk', (req, res) => {
     if (b.v) return 1;
     return b.t - a.t;
   });
-  const elegido = ordenados[0];
-  res.setHeader('Content-Disposition', `attachment; filename="${elegido.f}"`);
+  const e = ordenados[0];
+  return { nombre: e.f, ruta: e.ruta, tamano: e.tamano, version: e.v ? e.v.join('.') : null };
+}
+
+// Version del APK disponible - sin autenticacion (la consulta el actualizador in-app)
+app.get('/api/version', (req, res) => {
+  const apk = apkMasReciente();
+  if (!apk) return res.status(404).json({ error: 'APK no encontrado' });
+  res.json({ version: apk.version, nombre: apk.nombre, tamano: apk.tamano, url: '/api/download/apk' });
+});
+
+// Descarga APK - sin autenticacion
+// Sirve SIEMPRE la version mas reciente (por version del nombre o fecha del archivo)
+app.get('/api/download/apk', (req, res) => {
+  const apk = apkMasReciente();
+  if (!apk) return res.status(404).json({ error: 'APK no encontrado' });
+  res.setHeader('Content-Disposition', `attachment; filename="${apk.nombre}"`);
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Length', fs.statSync(path.join(apkDir, elegido.f)).size);
-  fs.createReadStream(path.join(apkDir, elegido.f)).pipe(res);
+  res.setHeader('Content-Length', apk.tamano);
+  fs.createReadStream(apk.ruta).pipe(res);
 });
 
 // Rutas publicas

@@ -23,6 +23,7 @@ import ArticuloDetalleScreen from './src/screens/ArticuloDetalleScreen';
 import WhatsAppScreen from './src/screens/WhatsAppScreen';
 import WhatsAppClienteScreen from './src/screens/WhatsAppClienteScreen';
 import HeaderButtons from './src/components/HeaderButtons';
+import Actualizador from './src/components/Actualizador';
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -212,6 +213,7 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <AppNavigator />
+          <Actualizador />
           <StatusBar style="light" />
         </AuthProvider>
       </ThemeProvider>

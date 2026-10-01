@@ -2,7 +2,7 @@
   "expo": {
     "name": "movil",
     "slug": "cobranza",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "com.docpendientes.cobranza",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -20,7 +20,8 @@
       },
       "permissions": [
         "INTERNET",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "REQUEST_INSTALL_PACKAGES"
       ]
     },
     "web": {
