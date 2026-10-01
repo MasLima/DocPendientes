@@ -42,7 +42,7 @@ export default function ConfigUsuariosScreen() {
 
   const abrirEditar = (u) => {
     setEditando(u);
-    setForm({ use_name: u.use_name, use_apel: u.use_apel, rol: u.rol, activo: !!u.activo });
+    setForm({ use_name: u.use_name, use_apel: u.use_apel, rol: u.rol, activo: !!u.activo, use_pass: '' });
     setError('');
     setVerForm(true);
   };
@@ -52,7 +52,10 @@ export default function ConfigUsuariosScreen() {
     setError('');
     try {
       if (editando) {
-        await apiPut(`/usuarios/${editando.id}`, form, token);
+        const datos = { ...form };
+        // Vacia = no cambiar la contraseña.
+        if (!datos.use_pass || !datos.use_pass.trim()) delete datos.use_pass;
+        await apiPut(`/usuarios/${editando.id}`, datos, token);
       } else {
         await apiPost('/usuarios', form, token);
       }
@@ -109,6 +112,21 @@ export default function ConfigUsuariosScreen() {
                 className="input"
                 style={{ marginBottom: 12 }}
                 type="password"
+                value={form.use_pass || ''}
+                onChange={(e) => setForm({ ...form, use_pass: e.target.value })}
+              />
+            </>
+          )}
+
+          {editando && (
+            <>
+              <label className="mutado" style={{ display: 'block', marginBottom: 4 }}>Nueva contraseña (opcional)</label>
+              <input
+                className="input"
+                style={{ marginBottom: 12 }}
+                type="password"
+                autoComplete="new-password"
+                placeholder="Dejar vacío para no cambiar"
                 value={form.use_pass || ''}
                 onChange={(e) => setForm({ ...form, use_pass: e.target.value })}
               />

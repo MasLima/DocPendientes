@@ -5,6 +5,7 @@ import { apiGet } from '../api/client';
 import { DocumentIcon, CalendarIcon, TimeIcon, StatsIcon, EyeIcon, PlusIcon, ChatbubbleIcon, WhatsAppIcon } from '../components/Iconos';
 import Exportar from '../components/Exportar';
 import WhatsAppModal from '../components/WhatsAppModal';
+import { VencimientosTab, ModalEnvioVencimiento, ModalConfigVencimientos } from '../components/Vencimientos';
 
 function fmt(v) {
   return Number(v || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -188,12 +189,24 @@ function filaPendientesExportar(d) {
 // ---------- Componente principal ----------
 export default function ClienteDetalleScreen() {
   const { codigo } = useParams();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [pestana, setPestana] = useState('pendientes');
   const [waModal, setWaModal] = useState(false);
+
+  // Vencimientos (rangos) del cliente
+  const [vencimientos, setVencimientos] = useState(null);
+  const [vencError, setVencError] = useState('');
+  const [rangoExpandido, setRangoExpandido] = useState(null);
+  const [docsSeleccionados, setDocsSeleccionados] = useState([]);
+  const [modalEnvio, setModalEnvio] = useState(null); // { clientes: [...] }
+  const [modalConfig, setModalConfig] = useState(false);
+  const [configRangos, setConfigRangos] = useState([]);
+  const [editandoRango, setEditandoRango] = useState(null);
+  const [tiposDoc, setTiposDoc] = useState([]);
+  const [tipoDocSel, setTipoDocSel] = useState('');
 
   // Parámetros del cronograma de vencimientos
   const [cantRangos, setCantRangos] = useState(4);
@@ -216,6 +229,44 @@ export default function ClienteDetalleScreen() {
   }, [codigo, token]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  const puedeConfigurar = user?.permisos?.includes('vencimientos.config') || false;
+
+  // Vencimientos del solo este cliente (?cliente=).
+  const cargarVencimientos = useCallback(async () => {
+    try {
+      setVencError('');
+      const params = new URLSearchParams({ cliente: codigo });
+      if (tipoDocSel) params.set('tipo_documento', tipoDocSel);
+      const datos = await apiGet(`/clientes/vencimientos?${params.toString()}`, token);
+      setVencimientos(datos);
+    } catch (err) {
+      setVencError(err.message);
+    }
+  }, [token, codigo, tipoDocSel]);
+
+  const cargarConfigRangos = useCallback(async () => {
+    try {
+      const datos = await apiGet('/config/vencimientos', token);
+      setConfigRangos(datos);
+    } catch (err) {
+      console.error('Error cargando config:', err);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (pestana === 'vencimientos') {
+      cargarVencimientos();
+      cargarConfigRangos();
+    }
+  }, [pestana, cargarVencimientos, cargarConfigRangos]);
+
+  // Tipos de documento con pendientes (para el filtro de Vencimientos)
+  useEffect(() => {
+    apiGet('/clientes/tipos-documento', token)
+      .then((datos) => setTiposDoc(Array.isArray(datos) ? datos : []))
+      .catch(() => {});
+  }, [token]);
 
   const cronograma = useMemo(
     () => data ? calcularCronograma(data.documentos, cantRangos, diasRango, fechaInicial) : null,
@@ -382,6 +433,13 @@ export default function ClienteDetalleScreen() {
         </button>
         <button
           className="btn btn-ghost"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'vencimientos' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'vencimientos' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
+          onClick={() => setPestana('vencimientos')}
+        >
+          <WhatsAppIcon size={18} /> Vencimientos
+        </button>
+        <button
+          className="btn btn-ghost"
           style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'resumen' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'resumen' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
           onClick={() => setPestana('resumen')}
         >
@@ -543,6 +601,28 @@ export default function ClienteDetalleScreen() {
         </div>
       )}
 
+      {pestana === 'vencimientos' && (
+        <div>
+          <VencimientosTab
+            vencimientos={vencimientos}
+            vencError={vencError}
+            rangoExpandido={rangoExpandido}
+            setRangoExpandido={setRangoExpandido}
+            docsSeleccionados={docsSeleccionados}
+            setDocsSeleccionados={setDocsSeleccionados}
+            onEnviarWhatsApp={(clientes) => setModalEnvio({ clientes })}
+            cargando={!vencimientos && !vencError}
+            configRangos={configRangos}
+            setModalConfig={setModalConfig}
+            setEditandoRango={setEditandoRango}
+            tiposDoc={tiposDoc}
+            tipoDocSel={tipoDocSel}
+            setTipoDocSel={setTipoDocSel}
+            puedeConfigurar={puedeConfigurar}
+          />
+        </div>
+      )}
+
       {pestana === 'resumen' && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -600,6 +680,27 @@ export default function ClienteDetalleScreen() {
             </table>
           </div>
         </div>
+      )}
+
+      {modalEnvio && (
+        <ModalEnvioVencimiento
+          clientes={modalEnvio.clientes}
+          rango={rangoExpandido}
+          mensajeTemplate={vencimientos?.rangos?.[rangoExpandido]?.mensaje_template || ''}
+          onClose={() => setModalEnvio(null)}
+          onEnviado={() => { setModalEnvio(null); setDocsSeleccionados([]); cargarVencimientos(); }}
+          token={token}
+        />
+      )}
+
+      {modalConfig && (
+        <ModalConfigVencimientos
+          rangos={configRangos}
+          editandoRango={editandoRango}
+          setEditandoRango={setEditandoRango}
+          onClose={() => { setModalConfig(false); setEditandoRango(null); cargarConfigRangos(); }}
+          token={token}
+        />
       )}
     </div>
   );

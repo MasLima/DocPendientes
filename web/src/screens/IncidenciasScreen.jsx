@@ -176,9 +176,13 @@ function SelectVendedorSimple({ token, value, onSelect }) {
 }
 
 export default function IncidenciasScreen() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const permisos = user?.permisos || [];
+  const puedeOtros = permisos.includes('incidencias.todas') || permisos.includes('clientes.ver_todos');
+  const puedeEditar = permisos.includes('incidencias.editar');
 
   const [pestana, setPestana] = useState('historial');
   const [incidencias, setIncidencias] = useState([]);
@@ -246,9 +250,11 @@ export default function IncidenciasScreen() {
           <button className="btn btn-accion" style={{ background: 'var(--celeste)', color: '#fff', height: 40 }} onClick={() => navigate('/incidencias/nueva')}>
             <PlusIcon size={20} /> Registrar incidencia
           </button>
-          <button className="btn btn-ghost" style={{ border: '1px solid var(--celeste)', color: 'var(--celeste)', height: 40 }} onClick={() => navigate('/incidencias/nueva?otros=1')}>
-            <PeopleIcon size={18} /> Incidencia a otros clientes
-          </button>
+          {puedeOtros && (
+            <button className="btn btn-ghost" style={{ border: '1px solid var(--celeste)', color: 'var(--celeste)', height: 40 }} onClick={() => navigate('/incidencias/nueva?otros=1')}>
+              <PeopleIcon size={18} /> Incidencia a otros clientes
+            </button>
+          )}
         </div>
       </div>
 
@@ -310,7 +316,7 @@ export default function IncidenciasScreen() {
                 <td className="mono">{it.fe_regi}</td>
                 <td><span className="badge" style={{ backgroundColor: estadoColor(it.inc_estc) }}>{estadoTexto(it.inc_estc)}</span></td>
                 <td>
-                  {!it.inc_codi_erp && (
+                  {!it.inc_codi_erp && puedeEditar && (
                     <button
                       className="btn btn-ghost"
                       title="Editar incidencia"

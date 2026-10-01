@@ -244,6 +244,11 @@ router.post('/', async (req, res) => {
 // la sincronizacion ERP -> App las sobreescribiria en la proxima corrida.
 router.put('/:codi', async (req, res) => {
   try {
+    const permisos = req.user.permisos || [];
+    if (!permisos.includes('incidencias.editar')) {
+      return res.status(403).json({ error: 'No tienes permisos para esta opcion', permiso: 'incidencias.editar' });
+    }
+
     const codi = parseInt(req.params.codi, 10);
     if (!codi || isNaN(codi)) {
       return res.status(400).json({ error: 'Codigo de incidencia invalido' });

@@ -3,7 +3,7 @@ const pool = require('../config/db');
 const { requirePermiso } = require('../middleware/permisos');
 
 // GET /api/config/vencimientos — listar rangos configurados
-router.get('/', requirePermiso('config.ver'), async (req, res) => {
+router.get('/', requirePermiso('vencimientos.config'), async (req, res) => {
   try {
     const [rows] = await pool.query(
       'SELECT * FROM config_vencimientos ORDER BY orden, id'
@@ -16,7 +16,7 @@ router.get('/', requirePermiso('config.ver'), async (req, res) => {
 });
 
 // POST /api/config/vencimientos — crear nuevo rango
-router.post('/', requirePermiso('config.ver'), async (req, res) => {
+router.post('/', requirePermiso('vencimientos.config'), async (req, res) => {
   const { nombre, etiqueta, dias_desde, dias_hasta, orden, mensaje_template } = req.body;
   if (!nombre || !etiqueta || dias_desde == null || dias_hasta == null || !mensaje_template) {
     return res.status(400).json({ error: 'Faltan campos obligatorios' });
@@ -37,7 +37,7 @@ router.post('/', requirePermiso('config.ver'), async (req, res) => {
 });
 
 // PUT /api/config/vencimientos/:id — actualizar rango
-router.put('/:id', requirePermiso('config.ver'), async (req, res) => {
+router.put('/:id', requirePermiso('vencimientos.config'), async (req, res) => {
   const { etiqueta, dias_desde, dias_hasta, orden, activo, mensaje_template } = req.body;
   try {
     const campos = [];
@@ -59,7 +59,7 @@ router.put('/:id', requirePermiso('config.ver'), async (req, res) => {
 });
 
 // DELETE /api/config/vencimientos/:id — eliminar rango
-router.delete('/:id', requirePermiso('config.ver'), async (req, res) => {
+router.delete('/:id', requirePermiso('vencimientos.config'), async (req, res) => {
   try {
     await pool.query('DELETE FROM config_vencimientos WHERE id = ?', [req.params.id]);
     res.json({ message: 'Rango eliminado' });

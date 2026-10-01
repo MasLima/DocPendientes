@@ -6,8 +6,12 @@ const pool = require('../config/db');
 // opts.todos: habilita ?todos=1 para ignorar la cartera del vendedor (busqueda
 // de cualquier cliente al registrar incidencias a clientes no asignados).
 function filtroClientes(req, alias = 'c', opts = {}) {
-  const puedeTodos = req.user.permisos && req.user.permisos.includes('clientes.ver_todos');
-  const porParametro = !!opts.todos && req.query.todos === '1';
+  const permisos = req.user.permisos || [];
+  const puedeTodos = permisos.includes('clientes.ver_todos');
+  // ?todos=1 solo lo ignoran quienes tengan 'incidencias.todas' o
+  // 'clientes.ver_todos'; sin esos permisos se limita a su cartera.
+  const porParametro = !!opts.todos && req.query.todos === '1' &&
+    (puedeTodos || permisos.includes('incidencias.todas'));
   const params = [];
   const where = [];
   if (!puedeTodos && !porParametro) {
@@ -260,6 +264,12 @@ router.get('/vencimientos', async (req, res) => {
     if (req.query.tipo_documento) {
       filtro += ' AND d.cob_codo = ?';
       filtroParams.push(req.query.tipo_documento);
+    }
+    // ?cliente=XXX: solo documentos de un cliente (pestana Vencimientos
+    // del detalle de cliente).
+    if (req.query.cliente) {
+      filtro += ' AND d.cob_cote = ?';
+      filtroParams.push(req.query.cliente);
     }
 
     const [docs] = await pool.query(

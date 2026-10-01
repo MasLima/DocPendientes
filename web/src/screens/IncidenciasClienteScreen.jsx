@@ -22,7 +22,7 @@ function estadoTexto(inc_estc) {
 
 export default function IncidenciasClienteScreen() {
   const { codigo } = useParams();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const navigate = useNavigate();
   const [incidencias, setIncidencias] = useState([]);
   const [frecuencia, setFrecuencia] = useState([]);
@@ -30,6 +30,8 @@ export default function IncidenciasClienteScreen() {
   const [error, setError] = useState('');
   const [mostrarHistorial, setMostrarHistorial] = useState(false);
   const [paginaInc, setPaginaInc] = useState(1);
+
+  const puedeEditar = (user?.permisos || []).includes('incidencias.editar');
 
   const cargar = useCallback(async () => {
     try {
@@ -135,7 +137,7 @@ export default function IncidenciasClienteScreen() {
         <>
           <table className="tabla">
             <thead>
-              <tr><th>#</th><th>Vendedor</th><th>Descripción</th><th>Acción</th><th>Fecha</th><th>Estado</th></tr>
+              <tr><th>#</th><th>Vendedor</th><th>Descripción</th><th>Acción</th><th>Fecha</th><th>Estado</th>{puedeEditar && <th style={{ width: 50 }}></th>}</tr>
             </thead>
             <tbody>
               {incidenciasVisibles.map((it) => (
@@ -146,10 +148,24 @@ export default function IncidenciasClienteScreen() {
                   <td style={{ maxWidth: 240 }}>{it.inc_acci || '-'}</td>
                   <td className="mono">{it.fe_regi}</td>
                   <td><span className="badge" style={{ backgroundColor: estadoColor(it.inc_estc) }}>{estadoTexto(it.inc_estc)}</span></td>
+                  {puedeEditar && (
+                    <td>
+                      {!it.inc_codi_erp && (
+                        <button
+                          className="btn btn-ghost"
+                          title="Editar incidencia"
+                          style={{ padding: '4px 8px', fontSize: 14 }}
+                          onClick={() => navigate(`/incidencias/nueva?editar=${it.inc_codi}`)}
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
               {incidenciasVisibles.length === 0 && (
-                <tr><td colSpan={6} className="vacio">Sin incidencias</td></tr>
+                <tr><td colSpan={puedeEditar ? 7 : 6} className="vacio">Sin incidencias</td></tr>
               )}
             </tbody>
           </table>
