@@ -235,9 +235,11 @@ async function guardarLog(telefono, tipo, mensaje, imagenUrl, archivos, userId, 
 
 // POST /api/whatsapp/enviar-vencimiento
 // Envía mensajes de vencimiento agrupados por cliente.
-// Body: { documentos: [{ ter_cote, cliente_nombre, cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums, saldo, fecha_vencimiento, dias_vencido }], rango: 'nombre_rango', telefono: '51...' }
+// Body: { documentos: [{ ter_cote, cliente_nombre, cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums, saldo, fecha_vencimiento, dias_vencido }], rango: 'nombre_rango', telefono: '51...', mensaje?: 'texto personalizado por cliente' }
+// Si 'mensaje' viene con texto, se envia tal cual (lo edito el usuario en el
+// modal); si no, se arma desde el template del rango.
 router.post('/enviar-vencimiento', async (req, res) => {
-  const { documentos, rango, telefono } = req.body;
+  const { documentos, rango, telefono, mensaje } = req.body;
   if (!documentos || !documentos.length || !rango) {
     return res.status(400).json({ error: 'Faltan documentos o rango' });
   }
@@ -279,31 +281,37 @@ router.post('/enviar-vencimiento', async (req, res) => {
       const monedaTotal = info.documentos[0]?.cob_como === 'USD' ? 'US$' : 'S/';
       const tipoDoc = info.documentos[0]?.cob_codo || '';
 
-      let mensaje = configRango.mensaje_template
-        .replace(/{nombre}/g, info.nombre)
-        .replace(/{doc}/g, `${tipoDoc}-${info.documentos[0].cob_seri}-${info.documentos[0].cob_nums}`)
-        .replace(/{fecha}/g, info.documentos[0].fecha_vencimiento ? new Date(info.documentos[0].fecha_vencimiento).toLocaleDateString('es-PE') : '-')
-        .replace(/{dias}/g, Math.abs(info.documentos[0].dias_vencido))
-        .replace(/{saldo}/g, Number(info.documentos[0].saldo).toFixed(2))
-        .replace(/{moneda}/g, info.documentos[0].cob_como === 'USD' ? 'US$' : 'S/');
+      let mensajeFinal;
+      if (typeof mensaje === 'string' && mensaje.trim()) {
+        // Mensaje editado por el usuario en el modal: se envia tal cual.
+        mensajeFinal = mensaje;
+      } else {
+        mensajeFinal = configRango.mensaje_template
+          .replace(/{nombre}/g, info.nombre)
+          .replace(/{doc}/g, `${tipoDoc}-${info.documentos[0].cob_seri}-${info.documentos[0].cob_nums}`)
+          .replace(/{fecha}/g, info.documentos[0].fecha_vencimiento ? new Date(info.documentos[0].fecha_vencimiento).toLocaleDateString('es-PE') : '-')
+          .replace(/{dias}/g, Math.abs(info.documentos[0].dias_vencido))
+          .replace(/{saldo}/g, Number(info.documentos[0].saldo).toFixed(2))
+          .replace(/{moneda}/g, info.documentos[0].cob_como === 'USD' ? 'US$' : 'S/');
 
-      if (info.documentos.length > 1) {
-        mensaje += `\n\nDocumentos pendientes en este rango:\n${docLineas}\n\n*Total pendiente: ${monedaTotal} ${total.toFixed(2)}*`;
+        if (info.documentos.length > 1) {
+          mensajeFinal += `\n\nDocumentos pendientes en este rango:\n${docLineas}\n\n*Total pendiente: ${monedaTotal} ${total.toFixed(2)}*`;
+        }
       }
 
       const tel = info.telefono;
       if (!tel) { resultados.push({ ter_cote: terCote, ok: false, error: 'Sin teléfono' }); continue; }
 
-      const r = await wa.enviarMensaje(tel, mensaje);
+      const r = await wa.enviarMensaje(tel, mensajeFinal);
       if (r.ok) {
         for (const d of info.documentos) {
           await pool.query(
             `INSERT INTO whatsapp_envios (ter_cote, cob_tivo, cob_nuvo, cob_codo, cob_seri, cob_nums, telefono, rango, mensaje, fecha_envio, enviado_por)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
-            [terCote, d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums, tel, rango, mensaje, req.user.id]
+            [terCote, d.cob_tivo, d.cob_nuvo, d.cob_codo, d.cob_seri, d.cob_nums, tel, rango, mensajeFinal, req.user.id]
           );
         }
-        await guardarLog(tel, 'vencimiento', mensaje, null, null, req.user.id, null);
+        await guardarLog(tel, 'vencimiento', mensajeFinal, null, null, req.user.id, null);
         resultados.push({ ter_cote: terCote, ok: true, enviados: info.documentos.length });
       } else {
         resultados.push({ ter_cote: terCote, ok: false, error: r.error });

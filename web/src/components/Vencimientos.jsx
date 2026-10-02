@@ -235,6 +235,7 @@ export function ModalEnvioVencimiento({ clientes, rango, mensajeTemplate, onClos
   const [enviando, setEnviando] = useState(false);
   const [clienteActual, setClienteActual] = useState(0);
   const [telefonoEditado, setTelefonoEditado] = useState({});
+  const [mensajeEditado, setMensajeEditado] = useState({}); // { ter_cote: texto }
 
   const totalDocs = clientes.reduce((s, c) => s + c.documentos.length, 0);
   const totalSaldo = clientes.reduce((s, c) => s + c.documentos.reduce((s2, d) => s2 + Number(d.saldo), 0), 0);
@@ -268,6 +269,11 @@ export function ModalEnvioVencimiento({ clientes, rango, mensajeTemplate, onClos
     return msg;
   };
 
+  // Texto final por cliente: el editado por el usuario o el del template.
+  const getMensaje = (c) => (
+    mensajeEditado[c.ter_cote] !== undefined ? mensajeEditado[c.ter_cote] : buildMensaje(c)
+  );
+
   const enviar = async () => {
     setEnviando(true);
     setResultados([]);
@@ -292,7 +298,8 @@ export function ModalEnvioVencimiento({ clientes, rango, mensajeTemplate, onClos
         const result = await apiPost('/whatsapp/enviar-vencimiento', {
           documentos: payload,
           rango,
-          telefono: tel
+          telefono: tel,
+          mensaje: getMensaje(c)
         }, token);
         setResultados(prev => [...prev, { cliente: c.nombre, ...result.resultados[0] }]);
       } catch (err) {
@@ -340,8 +347,34 @@ export function ModalEnvioVencimiento({ clientes, rango, mensajeTemplate, onClos
               </div>
             )}
             {(!resultados || !resultados[idx]?.ok) && (
-              <div style={{ background: '#fff', borderRadius: 6, padding: 8, marginTop: 4, fontSize: 12, whiteSpace: 'pre-wrap', fontFamily: 'monospace', maxHeight: 120, overflow: 'auto', border: '1px solid var(--borde)' }}>
-                {buildMensaje(c)}
+              <div style={{ background: '#fff', borderRadius: 6, padding: 8, marginTop: 4, border: '1px solid var(--borde)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <span className="mutado" style={{ fontSize: 11 }}>Mensaje a enviar (puedes editarlo)</span>
+                  {mensajeEditado[c.ter_cote] !== undefined && (
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 11, padding: '2px 8px', border: '1px solid var(--borde)' }}
+                      onClick={() => setMensajeEditado(prev => { const copia = { ...prev }; delete copia[c.ter_cote]; return copia; })}
+                    >
+                      ↺ Restaurar
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  className="input"
+                  style={{
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    minHeight: 110,
+                    maxHeight: 240,
+                    resize: 'vertical',
+                    lineHeight: 1.45,
+                    background: 'var(--fondo)'
+                  }}
+                  value={getMensaje(c)}
+                  onChange={(e) => setMensajeEditado(prev => ({ ...prev, [c.ter_cote]: e.target.value }))}
+                />
               </div>
             )}
           </div>
