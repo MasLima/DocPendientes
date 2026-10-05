@@ -5,7 +5,8 @@ import { apiGet, apiPost } from '../api/client';
 import Exportar from '../components/Exportar';
 
 const PROCESOS = [
-  { clave: 'maestros', etiqueta: 'Maestros (vendedores y clientes)' },
+  { clave: 'vendedores', etiqueta: 'Vendedores (solo adición)' },
+  { clave: 'clientes', etiqueta: 'Clientes (actualiza existentes)' },
   { clave: 'asignaciones', etiqueta: 'Asignación de clientes por ventas' },
   { clave: 'condiciones', etiqueta: 'Condiciones de pago' },
   { clave: 'tipos', etiqueta: 'Tipos de documento' },
@@ -54,14 +55,15 @@ export default function ConfigSyncScreen() {
       const r = await apiPost('/sync/ejecutar', { procesos, modo }, token);
       const res = r.resultados || {};
       const partes = [];
-      if (res.maestros) partes.push(`Vendedores: ${res.maestros.vendedores} | Clientes: ${res.maestros.clientes}`);
+      if (res.vendedores) partes.push(`Vendedores nuevos: ${res.vendedores.nuevos} | ya existentes: ${res.vendedores.existentes}`);
+      if (res.clientes) partes.push(`Clientes: ${res.clientes.clientes}`);
       if (res.asignaciones) partes.push(`Asignaciones: ${res.asignaciones.actualizados} actualizados`);
       if (res.condiciones) partes.push(`Condiciones: ${res.condiciones.condiciones}`);
       if (res.tipos) partes.push(`Tipos: ${res.tipos.tipos}`);
       if (res.bancos) partes.push(`Bancos: ${res.bancos.bancos}`);
       if (res.documentos) partes.push(`Documentos: ${res.documentos.documentos}`);
       if (res.incidencias) partes.push(`Incidencias nuevas: ${res.incidencias.incidencias} | Actualizadas: ${res.incidencias.actualizadas}`);
-      if (res.usuarios) partes.push(`Usuarios: ${res.usuarios.usuarios} (nuevos: ${res.usuarios.creados}, actualizados: ${res.usuarios.actualizados}, desactivados: ${res.usuarios.desactivados})`);
+      if (res.usuarios) partes.push(`Usuarios nuevos: ${res.usuarios.nuevos} | ya existentes: ${res.usuarios.existentes}`);
       if (res.articulos) partes.push(`Artículos: ${res.articulos.articulos}`);
       if (res.compras) partes.push(`Compras: ${res.compras.compras}`);
       if (res.precios) partes.push(`Precios: ${res.precios.precios}`);
@@ -101,7 +103,8 @@ export default function ConfigSyncScreen() {
           <div style={{ fontSize: 12, color: 'var(--texto-suave)', marginTop: 4 }}>
             {modo === 'parcial'
               ? 'Actualiza registros existentes. No elimina registros que ya no estén en el ERP.'
-              : 'Limpia completamente las tablas y las rellena con datos del ERP. BD = ERP exactamente.'}
+              : 'Limpia las tablas de clientes/catálogos y las rellena con datos del ERP.'}
+            {' '}Vendedores y Usuarios siempre son solo adición: nunca se actualizan ni eliminan.
           </div>
         </div>
 

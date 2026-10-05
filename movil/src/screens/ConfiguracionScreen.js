@@ -89,13 +89,14 @@ export function ConfigSyncScreen() {
     try {
       const r = await apiPost('/sync/ejecutar', {}, token);
       Alert.alert('Sync completado',
-        `Vendedores: ${r.resultados?.maestros?.vendedores}\n` +
-        `Clientes: ${r.resultados?.maestros?.clientes}\n` +
-        `Asignaciones: ${r.resultados?.asignaciones?.actualizados}\n` +
-        `Documentos pendientes: ${r.resultados?.documentos?.documentos}\n` +
-        `Incidencias nuevas: ${r.resultados?.incidencias?.incidencias}\n` +
-        `Incidencias actualizadas: ${r.resultados?.incidencias?.actualizadas}\n` +
-        `Compras actualizadas: ${r.resultados?.compras?.compras}`);
+        `Vendedores nuevos: ${r.resultados?.vendedores?.nuevos ?? 0}\n` +
+        `Clientes: ${r.resultados?.clientes?.clientes ?? 0}\n` +
+        `Usuarios nuevos: ${r.resultados?.usuarios?.nuevos ?? 0}\n` +
+        `Asignaciones: ${r.resultados?.asignaciones?.actualizados ?? 0}\n` +
+        `Documentos pendientes: ${r.resultados?.documentos?.documentos ?? 0}\n` +
+        `Incidencias nuevas: ${r.resultados?.incidencias?.incidencias ?? 0}\n` +
+        `Incidencias actualizadas: ${r.resultados?.incidencias?.actualizadas ?? 0}\n` +
+        `Compras actualizadas: ${r.resultados?.compras?.compras ?? 0}`);
       cargarLog();
     } catch (err) {
       Alert.alert('Error', err.message);
@@ -107,7 +108,8 @@ export function ConfigSyncScreen() {
   return (
     <ScrollView style={[styles.panel, { backgroundColor: tema.fondo }]}>
       <Text style={[styles.parrafo, { color: tema.textoSuave }]}>
-        Sincroniza los datos desde el ERP: maestros (vendedores y clientes),
+        Sincroniza los datos desde el ERP: vendedores y usuarios
+        (solo adición, nunca se modifican ni eliminan), clientes,
         asignación de clientes por ventas, documentos pendientes,
         incidencias (solo ERP → App), artículos y compras.
         Puedes ejecutarla en cualquier momento, además de la programada.

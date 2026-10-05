@@ -39,55 +39,92 @@ async function logSync(proceso, filas, resultado = 'OK', detalle = null) {
   );
 }
 
-// ==================== MODO PARCIAL (REPLACE INTO) ====================
-// Actualiza registros existentes, no elimina huérfanos.
+// ==================== MAESTROS: VENDEDORES Y CLIENTES ====================
+// VENDEDORES: solo adicion (nunca elimina ni reemplaza).
+// CLIENTES: modo parcial REPLACE INTO (actualiza, no elimina) / completo DELETE + INSERT.
 
-async function syncMaestrosParcial() {
-  // VENDEDORES
+// ==================== VENDEDORES (SOLO ADICION) ====================
+// Solo inserta los vendedores que aun no existen en la tabla.
+// NUNCA elimina ni reemplaza registros existentes (ignora modo completo).
+
+async function syncVendedores() {
   const [vendedores] = await erp.query(
     `SELECT t.ter_cote, t.ter_deno, t.ter_stat, t.ter_date, u.use_logi
      FROM mplter001 t LEFT JOIN mtguse001 u ON u.use_emno = t.ter_cote
      WHERE t.ter_tite = '300000'`
   );
-  let vendOK = 0, vendErr = 0;
+  const [existentes] = await app.query('SELECT ter_cote FROM vendedores');
+  const set = new Set(existentes.map((v) => v.ter_cote));
+
+  let insertados = 0, yaExistentes = 0, errores = 0;
   for (const v of vendedores) {
+    if (set.has(v.ter_cote)) { yaExistentes++; continue; }
     try {
       await app.query(
-        `REPLACE INTO vendedores (ter_cote, ter_deno, use_logi, ter_stat, ter_date, ultima_sync)
+        `INSERT INTO vendedores (ter_cote, ter_deno, use_logi, ter_stat, ter_date, ultima_sync)
          VALUES (?, ?, ?, ?, ?, NOW())`,
         [v.ter_cote, limpiarUnicode(v.ter_deno), v.use_logi || null, v.ter_stat, v.ter_date]
       );
-      vendOK++;
-    } catch (e) { vendErr++; console.error(`Sync vendedor ${v.ter_cote} error:`, e.message); }
+      insertados++;
+    } catch (e) { errores++; console.error(`Sync vendedor ${v.ter_cote} error:`, e.message); }
   }
 
-  // CLIENTES
+  await logSync('VENDEDORES', insertados,
+    errores > 0 ? 'PARCIAL' : 'OK',
+    `nuevos=${insertados} existentes=${yaExistentes}${errores > 0 ? ` err=${errores}` : ''}`);
+  return { vendedores: insertados, nuevos: insertados, existentes: yaExistentes, errores };
+}
+
+// ==================== CLIENTES ====================
+// Parcial: REPLACE INTO (adiciona y actualiza, no elimina).
+// Completo: DELETE + INSERT.
+
+const SQL_CLIENTES = `INSERT INTO clientes
+   (ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell,
+    ter_emai, ter_core, ter_cocp, ter_licr, ter_stat, ter_cozo, ultima_sync)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
+
+function paramsClientes(c) {
+  return [c.ter_cote, limpiarUnicode(c.ter_deno), limpiarUnicode(c.ter_dire),
+    c.ter_rucn, c.ter_fono, c.ter_cell, limpiarUnicode(c.ter_emai),
+    c.ter_core, c.ter_cocp, c.ter_licr, c.ter_stat, c.ter_cozo];
+}
+
+async function _syncClientes(modo) {
   const [clientes] = await erp.query(
     `SELECT t.ter_cote, t.ter_deno, t.ter_dire, t.ter_rucn, t.ter_fono,
             t.ter_cell, t.ter_emai, t.ter_core, t.ter_cocp, t.ter_licr,
             t.ter_stat, t.ter_cozo
      FROM mplter001 t WHERE t.ter_tite = '100000'`
   );
-  let cliOK = 0, cliErr = 0;
+  if (modo === 'completo') await app.query('DELETE FROM clientes');
+
+  let insertados = 0, errores = 0;
   for (const c of clientes) {
     try {
-      await app.query(
-        `REPLACE INTO clientes
-           (ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell,
-            ter_emai, ter_core, ter_cocp, ter_licr, ter_stat, ter_cozo, ultima_sync)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [c.ter_cote, limpiarUnicode(c.ter_deno), limpiarUnicode(c.ter_dire),
-         c.ter_rucn, c.ter_fono, c.ter_cell, limpiarUnicode(c.ter_emai),
-         c.ter_core, c.ter_cocp, c.ter_licr, c.ter_stat, c.ter_cozo]
-      );
-      cliOK++;
-    } catch (e) { cliErr++; console.error(`Sync cliente ${c.ter_cote} error:`, e.message); }
+      if (modo === 'completo') {
+        await app.query(SQL_CLIENTES, paramsClientes(c));
+      } else {
+        await app.query(
+          `REPLACE INTO clientes
+             (ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell,
+              ter_emai, ter_core, ter_cocp, ter_licr, ter_stat, ter_cozo, ultima_sync)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          paramsClientes(c)
+        );
+      }
+      insertados++;
+    } catch (e) { errores++; console.error(`Sync cliente ${c.ter_cote} error:`, e.message); }
   }
 
-  await logSync('MAESTROS', vendOK + cliOK,
-    vendErr + cliErr > 0 ? 'PARCIAL' : 'OK',
-    `vend=${vendOK}/${vendedores.length} cli=${cliOK}/${clientes.length}${vendErr + cliErr > 0 ? ` err=${vendErr + cliErr}` : ''}`);
-  return { vendedores: vendOK, clientes: cliOK, errores: vendErr + cliErr };
+  await logSync('CLIENTES', insertados,
+    errores > 0 ? 'PARCIAL' : 'OK',
+    `procesados=${insertados}/${clientes.length}${errores > 0 ? ` err=${errores}` : ''}`);
+  return { clientes: insertados, errores };
+}
+
+async function syncClientesParcial() {
+  return _syncClientes('parcial');
 }
 
 async function syncCondicionesPagoParcial() {
@@ -343,56 +380,10 @@ async function syncPrecios() {
   }
 }
 
-// ==================== MAESTROS COMPLETO ====================
+// ==================== CLIENTES COMPLETO ====================
 
-async function syncMaestrosCompleto() {
-  // VENDEDORES
-  const [vendedores] = await erp.query(
-    `SELECT t.ter_cote, t.ter_deno, t.ter_stat, t.ter_date, u.use_logi
-     FROM mplter001 t LEFT JOIN mtguse001 u ON u.use_emno = t.ter_cote
-     WHERE t.ter_tite = '300000'`
-  );
-  await app.query('DELETE FROM vendedores');
-  let vendOK = 0, vendErr = 0;
-  for (const v of vendedores) {
-    try {
-      await app.query(
-        `INSERT INTO vendedores (ter_cote, ter_deno, use_logi, ter_stat, ter_date, ultima_sync)
-         VALUES (?, ?, ?, ?, ?, NOW())`,
-        [v.ter_cote, limpiarUnicode(v.ter_deno), v.use_logi || null, v.ter_stat, v.ter_date]
-      );
-      vendOK++;
-    } catch (e) { vendErr++; console.error(`Sync vendedor ${v.ter_cote} error:`, e.message); }
-  }
-
-  // CLIENTES
-  const [clientes] = await erp.query(
-    `SELECT t.ter_cote, t.ter_deno, t.ter_dire, t.ter_rucn, t.ter_fono,
-            t.ter_cell, t.ter_emai, t.ter_core, t.ter_cocp, t.ter_licr,
-            t.ter_stat, t.ter_cozo
-     FROM mplter001 t WHERE t.ter_tite = '100000'`
-  );
-  await app.query('DELETE FROM clientes');
-  let cliOK = 0, cliErr = 0;
-  for (const c of clientes) {
-    try {
-      await app.query(
-        `INSERT INTO clientes
-           (ter_cote, ter_deno, ter_dire, ter_rucn, ter_fono, ter_cell,
-            ter_emai, ter_core, ter_cocp, ter_licr, ter_stat, ter_cozo, ultima_sync)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [c.ter_cote, limpiarUnicode(c.ter_deno), limpiarUnicode(c.ter_dire),
-         c.ter_rucn, c.ter_fono, c.ter_cell, limpiarUnicode(c.ter_emai),
-         c.ter_core, c.ter_cocp, c.ter_licr, c.ter_stat, c.ter_cozo]
-      );
-      cliOK++;
-    } catch (e) { cliErr++; console.error(`Sync cliente ${c.ter_cote} error:`, e.message); }
-  }
-
-  await logSync('MAESTROS', vendOK + cliOK,
-    vendErr + cliErr > 0 ? 'PARCIAL' : 'OK',
-    `vend=${vendOK}/${vendedores.length} cli=${cliOK}/${clientes.length}${vendErr + cliErr > 0 ? ` err=${vendErr + cliErr}` : ''}`);
-  return { vendedores: vendOK, clientes: cliOK, errores: vendErr + cliErr };
+async function syncClientesCompleto() {
+  return _syncClientes('completo');
 }
 
 async function syncCondicionesPagoCompleto() {
@@ -549,7 +540,9 @@ async function syncIncidencias() {
   return { incidencias: insertados, actualizadas: actualizados };
 }
 
-// ==================== USUARIOS (siempre incremental) ====================
+// ==================== USUARIOS (SOLO ADICION) ====================
+// Solo inserta usuarios que aun no existen en usuarios_app.
+// NUNCA actualiza, reemplaza ni desactiva registros existentes.
 
 const AREAS_PERFILES = {
   '100001': 'gerencia', '100002': 'empleado', '100003': 'contabilidad',
@@ -566,47 +559,37 @@ async function syncUsuarios() {
     Object.keys(AREAS_PERFILES)
   );
 
-  let creados = 0, actualizados = 0, desactivados = 0;
-  const activos = new Set();
+  let creados = 0, existentes = 0, errores = 0;
 
   for (const u of usuarios) {
     if (!u.use_logi || !u.use_pass) continue;
     const rol = AREAS_PERFILES[u.ter_area];
     if (!rol) continue;
-    activos.add(u.use_logi);
 
-    const [exist] = await app.query(`SELECT id, use_pass FROM usuarios_app WHERE use_logi = ?`, [u.use_logi]);
-    let use_pass;
-    if (exist.length > 0 && exist[0].use_pass && exist[0].use_pass.startsWith('$2')) {
-      use_pass = exist[0].use_pass;
-    } else {
-      use_pass = u.use_pass;
-    }
+    try {
+      const [exist] = await app.query(`SELECT id FROM usuarios_app WHERE use_logi = ?`, [u.use_logi]);
+      if (exist.length > 0) { existentes++; continue; }
 
-    const nombre = limpiarUnicode(u.use_name) || '';
-    const apellido = limpiarUnicode(u.use_apel) || '';
+      const nombre = limpiarUnicode(u.use_name) || '';
+      const apellido = limpiarUnicode(u.use_apel) || '';
 
-    const [res] = await app.query(
-      `INSERT INTO usuarios_app (ter_cote, use_logi, use_pass, use_name, use_apel, rol, activo, origen)
-       VALUES (?, ?, ?, ?, ?, ?, 1, 'ERP')
-       ON DUPLICATE KEY UPDATE ter_cote=VALUES(ter_cote), use_pass=VALUES(use_pass),
-         use_name=VALUES(use_name), use_apel=VALUES(use_apel), rol=VALUES(rol), activo=1, origen='ERP'`,
-      [u.ter_cote, u.use_logi, use_pass, nombre, apellido, rol]
-    );
-    if (res.affectedRows === 1) creados++; else actualizados++;
-  }
-
-  const [erpUsers] = await app.query(`SELECT use_logi FROM usuarios_app WHERE origen = 'ERP'`);
-  for (const u of erpUsers) {
-    if (!activos.has(u.use_logi)) {
-      await app.query(`UPDATE usuarios_app SET activo = 0 WHERE use_logi = ? AND origen = 'ERP'`, [u.use_logi]);
-      desactivados++;
+      await app.query(
+        `INSERT INTO usuarios_app (ter_cote, use_logi, use_pass, use_name, use_apel, rol, activo, origen)
+         VALUES (?, ?, ?, ?, ?, ?, 1, 'ERP')`,
+        [u.ter_cote, u.use_logi, u.use_pass, nombre, apellido, rol]
+      );
+      creados++;
+    } catch (e) {
+      if (e.code === 'ER_DUP_ENTRY') { existentes++; continue; }
+      errores++;
+      console.error(`Sync usuario ${u.use_logi} error:`, e.message);
     }
   }
 
-  await logSync('USUARIOS', creados + actualizados, 'OK',
-    `nuevos=${creados} actualizados=${actualizados} desactivados=${desactivados}`);
-  return { usuarios: creados + actualizados, creados, actualizados, desactivados };
+  await logSync('USUARIOS', creados,
+    errores > 0 ? 'PARCIAL' : 'OK',
+    `nuevos=${creados} existentes=${existentes}${errores > 0 ? ` err=${errores}` : ''}`);
+  return { usuarios: creados, creados, existentes, errores };
 }
 
 // ==================== ASIGNACION DE CLIENTES POR VENTAS ====================
@@ -614,7 +597,7 @@ async function syncUsuarios() {
 // (mlofac011, ultimo ano, ven_stat != '80').
 // Regla: por cada cliente gana el vendedor de su venta mas reciente.
 // Solo asigna si el vendedor existe en la tabla vendedores.
-// Se ejecuta DEPUES de maestros (maestros reescribe ter_core desde el ERP).
+// Se ejecuta DESPUES de vendedores/clientes (clientes reescribe ter_core desde el ERP).
 
 async function syncAsignacionesVentas() {
   const [ventas] = await erp.query(
@@ -666,7 +649,8 @@ async function syncAsignacionesVentas() {
 // ==================== ORQUESTADOR PRINCIPAL ====================
 
 const FUNCIONES_PARCIAL = {
-  maestros: syncMaestrosParcial,
+  vendedores: syncVendedores,
+  clientes: syncClientesParcial,
   condiciones: syncCondicionesPagoParcial,
   tipos: syncTiposDocumentoParcial,
   bancos: syncBancosParcial,
@@ -676,7 +660,8 @@ const FUNCIONES_PARCIAL = {
 };
 
 const FUNCIONES_COMPLETO = {
-  maestros: syncMaestrosCompleto,
+  vendedores: syncVendedores,
+  clientes: syncClientesCompleto,
   condiciones: syncCondicionesPagoCompleto,
   tipos: syncTiposDocumentoCompleto,
   bancos: syncBancosCompleto,
@@ -687,16 +672,24 @@ const FUNCIONES_COMPLETO = {
 
 // Sincronizacion principal.
 // - 'procesos': array de nombres de procesos a ejecutar. Si es null o vacio, ejecuta todos.
+//   'maestros' es un alias retrocompatible que ejecuta 'vendedores' + 'clientes'.
 // - 'modo': 'parcial' (REPLACE INTO, default) o 'completo' (DELETE + INSERT).
-//   El modo completo solo aplica a tablas catalogo (maestros, condiciones, tipos, bancos, articulos).
-//   Documentos siempre es completo, incidencias/usuarios siempre son incrementales.
+//   El modo completo solo aplica a clientes y tablas catalogo (condiciones, tipos, bancos, articulos).
+//   VENDEDORES y USUARIOS siempre son SOLO ADICION: nunca eliminan ni reemplazan.
+//   Documentos siempre es completo, incidencias siempre incremental.
 //   INCIDENCIAS: solo sincroniza ERP → App (no envía desde la app al ERP).
 async function syncCompleto(procesos = null, modo = 'parcial') {
-  // Orden fijo: maestros reescribe ter_core y asignaciones lo corrige despues.
-  const validos = ['maestros', 'asignaciones', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'compras', 'precios'];
-  const seleccion = (procesos && procesos.length ? procesos : validos)
-    .filter((p) => validos.includes(p))
-    .sort((a, b) => validos.indexOf(a) - validos.indexOf(b));
+  // Orden fijo: vendedores/clientes antes de asignaciones (asignaciones corrige ter_core).
+  const validos = ['maestros', 'vendedores', 'clientes', 'asignaciones', 'condiciones', 'tipos', 'bancos', 'documentos', 'incidencias', 'usuarios', 'articulos', 'compras', 'precios'];
+  let seleccion = (procesos && procesos.length ? procesos : validos)
+    .filter((p) => validos.includes(p));
+  const aliasMaestros = seleccion.includes('maestros');
+  if (aliasMaestros) {
+    seleccion = seleccion.filter((p) => p !== 'maestros');
+    if (!seleccion.includes('vendedores')) seleccion.push('vendedores');
+    if (!seleccion.includes('clientes')) seleccion.push('clientes');
+  }
+  seleccion.sort((a, b) => validos.indexOf(a) - validos.indexOf(b));
   const resultados = {};
 
   for (const proc of seleccion) {
@@ -715,11 +708,20 @@ async function syncCompleto(procesos = null, modo = 'parcial') {
     }
   }
 
+  // Compatibilidad: si se pidio 'maestros', se expone tambien con esa clave.
+  if (aliasMaestros) {
+    resultados.maestros = {
+      vendedores: resultados.vendedores ? resultados.vendedores.nuevos : 0,
+      clientes: resultados.clientes ? resultados.clientes.clientes : 0
+    };
+  }
+
   return resultados;
 }
 
 module.exports = {
-  syncMaestros: syncMaestrosParcial,
+  syncVendedores,
+  syncClientes: syncClientesParcial,
   syncCondicionesPago: syncCondicionesPagoParcial,
   syncTiposDocumento: syncTiposDocumentoParcial,
   syncBancos: syncBancosParcial,

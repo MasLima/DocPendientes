@@ -6,8 +6,8 @@ async function main() {
     const r = await syncCompleto();
     console.log('====================');
     console.log('SYNC COMPLETADO OK');
-    console.log(`  Vendedores: ${r.maestros.vendedores}`);
-    console.log(`  Clientes:   ${r.maestros.clientes}`);
+    console.log(`  Vendedores: ${r.vendedores.nuevos} nuevos (${r.vendedores.existentes} ya existentes)`);
+    console.log(`  Clientes:   ${r.clientes.clientes}`);
     console.log(`  Pendientes: ${r.documentos.documentos}`);
     if (r.incidencias) console.log(`  Incidencias nuevas: ${r.incidencias.incidencias} | Actualizadas: ${r.incidencias.actualizadas}`);
     if (r.articulos) console.log(`  Articulos: ${r.articulos.articulos}`);

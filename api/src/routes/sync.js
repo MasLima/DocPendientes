@@ -6,9 +6,11 @@ const { syncCompleto } = require('../services/syncService');
 // Ejecutar la sincronizacion manualmente.
 // Solo admin (permiso sync.ejecutar).
 // Body opcional:
-//   { procesos: ['maestros','condiciones',...], modo: 'parcial'|'completo' }
+//   { procesos: ['vendedores','clientes','condiciones',...], modo: 'parcial'|'completo' }
+//   ('maestros' sigue aceptado como alias de vendedores + clientes)
 // - 'parcial' (default): REPLACE INTO, actualiza sin eliminar huérfanos.
 // - 'completo': DELETE + INSERT, limpia la BD y reemplaza con datos del ERP.
+//   VENDEDORES y USUARIOS ignoran el modo: siempre SOLO ADICION.
 router.post('/ejecutar', requirePermiso('sync.ejecutar'), async (req, res) => {
   try {
     const procesos = req.body?.procesos;

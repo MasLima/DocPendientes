@@ -59,22 +59,26 @@ npm install
 npm run sync
 ```
 
-Salida esperada:
+Salida esperada (durante el proceso se ven además logs `[syncArt]`,
+`[syncCompras]`, `[syncPrecios]`; los valores varían según el ERP):
 
 ```
-=== SYNC MAESTROS ===
-  Vendedores en ERP: 176
-  Vendedores insertados: 176
-  Clientes en ERP: 13953
-  Clientes insertados: 13953
-=== SYNC DOCUMENTOS PENDIENTES ===
-  Documentos pendientes en ERP: 410
-  Documentos pendientes cargados: 410
+====================
 SYNC COMPLETADO OK
-  Vendedores: 176
+  Vendedores: 0 nuevos (176 ya existentes)
   Clientes:   13953
   Pendientes: 410
+  Incidencias nuevas: 0 | Actualizadas: 0
+  Articulos: 15234
+  Compras: 3891
+  Precios: 47120
 ```
+
+> `npm run sync` ejecuta **todos** los procesos en orden fijo
+> (`vendedores`, `clientes`, `asignaciones`, `condiciones`, `tipos`, `bancos`,
+> `documentos`, `incidencias`, `usuarios`, `articulos`, `compras`, `precios`).
+> Desde la web/móvil se puede elegir un subconjunto
+> (`POST /api/sync/ejecutar` con `procesos` y `modo`).
 
 ## Paso 3: Verificar
 
@@ -91,8 +95,14 @@ mysql -u admin -padm.123 -h 127.0.0.1 cobranza_app -e "SELECT * FROM vw_document
 
 ## Notas
 
-- El script usa `REPLACE INTO` para maestros (idempotente) y `DELETE + INSERT`
-  para documentos (full refresh).
-- Cada ejecución registra una fila en `sync_log`.
+- Los maestros están separados en dos procesos: **`vendedores`** y **`clientes`**
+  (`maestros` queda como alias de ambos por compatibilidad).
+- `vendedores` y `usuarios` son de **solo adición**: insertan únicamente los
+  registros que no existen en la tabla; nunca actualizan, reemplazan ni eliminan.
+- `clientes` usa `REPLACE INTO` en modo parcial (adiciona y actualiza) y
+  `DELETE + INSERT` en modo completo. Los catálogos y documentos siguen igual
+  (`DELETE + INSERT` para documentos, full refresh).
+- Cada ejecución registra una fila en `sync_log` por proceso
+  (`VENDEDORES`, `CLIENTES`, `USUARIOS`, ...).
 - Si falla la conexión al ERP, no se toca la BD de la app (primero se lee todo
   y recién después se escribe).
