@@ -231,6 +231,7 @@ export default function ClienteDetalleScreen() {
   useEffect(() => { cargar(); }, [cargar]);
 
   const puedeConfigurar = user?.permisos?.includes('vencimientos.config') || false;
+  const puedeResumen = user?.permisos?.includes('clientes.ver_todos') || false;
 
   // Vencimientos del solo este cliente (?cliente=).
   const cargarVencimientos = useCallback(async () => {
@@ -438,13 +439,15 @@ export default function ClienteDetalleScreen() {
         >
           <WhatsAppIcon size={18} /> Vencimientos
         </button>
-        <button
-          className="btn btn-ghost"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'resumen' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'resumen' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
-          onClick={() => setPestana('resumen')}
-        >
-          <StatsIcon size={18} /> Resumen
-        </button>
+        {puedeResumen && (
+          <button
+            className="btn btn-ghost"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: pestana === 'resumen' ? 'var(--active)' : 'var(--tarjeta)', color: pestana === 'resumen' ? 'var(--texto)' : 'var(--texto)', border: '1px solid var(--borde)', height: 40 }}
+            onClick={() => setPestana('resumen')}
+          >
+            <StatsIcon size={18} /> Resumen
+          </button>
+        )}
       </div>
 
       {pestana === 'pendientes' && (

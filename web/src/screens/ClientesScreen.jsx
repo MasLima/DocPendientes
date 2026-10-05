@@ -308,7 +308,7 @@ export default function ClientesScreen() {
         {tabBtn('cronograma', <CalendarIcon size={18} />, 'Cronograma de Vencimientos')}
         {tabBtn('antiguedad', <TimeIcon size={18} />, 'Antigüedad de la Deuda')}
         {tabBtn('vencimientos', <WhatsAppIcon size={18} />, 'Vencimientos')}
-        {tabBtn('resumen', <StatsIcon size={18} />, 'Resumen')}
+        {puedeTodos && tabBtn('resumen', <StatsIcon size={18} />, 'Resumen')}
       </div>
 
       {cargando ? (
