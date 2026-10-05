@@ -9,9 +9,44 @@ let client = null;
 let estado = 'desconectado';
 let qrCode = null;
 let infoConexion = null;
+let reconectando = false;
+let timerReconexion = null;
+let intentosReconexion = 0;
+let fallosAuth = 0;
+let desconexionManual = false;
+
+function programarReconexion(motivo) {
+  if (desconexionManual || reconectando) return;
+  reconectando = true;
+  estado = 'reconectando';
+  intentosReconexion += 1;
+  const retrasos = [2000, 5000, 10000, 20000, 40000, 60000];
+  const retraso = retrasos[Math.min(intentosReconexion - 1, retrasos.length - 1)];
+  console.log(`[WA] Reconexión #${intentosReconexion} en ${retraso / 1000}s — motivo: ${motivo}`);
+  const viejo = client;
+  client = null;
+  infoConexion = null;
+  qrCode = null;
+  if (viejo) {
+    try {
+      const p = viejo.destroy();
+      if (p && p.catch) p.catch(() => {});
+    } catch {}
+  }
+  if (timerReconexion) clearTimeout(timerReconexion);
+  timerReconexion = setTimeout(() => {
+    timerReconexion = null;
+    if (desconexionManual) { reconectando = false; estado = 'desconectado'; return; }
+    inicializar();
+  }, retraso);
+}
 
 function inicializar() {
   if (client) return;
+  if (timerReconexion) { clearTimeout(timerReconexion); timerReconexion = null; }
+  reconectando = false;
+  desconexionManual = false;
+  estado = 'iniciando';
 
   if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 
@@ -33,6 +68,8 @@ function inicializar() {
   client.on('ready', () => {
     estado = 'conectado';
     qrCode = null;
+    intentosReconexion = 0;
+    fallosAuth = 0;
     infoConexion = client.info;
     console.log(`[WA] Conectado como: ${infoConexion?.pushname || 'Desconocido'} (${infoConexion?.wid?.user || '-'})`);
     console.log(`[WA] Número conectado (remitente): ${infoConexion?.wid?.user || 'desconocido'}`);
@@ -40,29 +77,47 @@ function inicializar() {
 
   client.on('authenticated', () => {
     estado = 'autenticado';
+    intentosReconexion = 0;
+    fallosAuth = 0;
     console.log('[WA] Autenticado correctamente.');
   });
 
   client.on('auth_failure', (msg) => {
     estado = 'error';
+    fallosAuth += 1;
     console.error('[WA] Fallo de autenticación:', msg);
+    if (fallosAuth >= 2) {
+      fallosAuth = 0;
+      try {
+        fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+        console.log('[WA] Sesión inválida eliminada. Se generará un QR nuevo.');
+      } catch {}
+    }
+    if (!desconexionManual) programarReconexion(`fallo de autenticación: ${msg}`);
   });
 
   client.on('disconnected', (reason) => {
-    estado = 'desconectado';
     infoConexion = null;
     console.log('[WA] Desconectado:', reason);
+    if (desconexionManual) { estado = 'desconectado'; qrCode = null; return; }
+    if (reconectando) return;
+    programarReconexion(`desconectado (${reason})`);
   });
 
   client.initialize().catch((err) => {
-    estado = 'error';
     console.error('[WA] Error al inicializar:', err.message);
+    if (desconexionManual) { estado = 'desconectado'; return; }
+    programarReconexion(`error al iniciar: ${err.message}`);
   });
 }
 
 function getEstado() {
-  if (!client && estado === 'desconectado') {
-    inicializar();
+  if (!desconexionManual && !reconectando && !timerReconexion) {
+    if (!client && (estado === 'desconectado' || estado === 'error')) {
+      inicializar();
+    } else if (client && (estado === 'desconectado' || estado === 'error')) {
+      programarReconexion('estado estancado');
+    }
   }
   return {
     estado,
@@ -79,12 +134,42 @@ function getQR() {
 }
 
 async function desconectar() {
+  desconexionManual = true;
+  reconectando = false;
+  if (timerReconexion) { clearTimeout(timerReconexion); timerReconexion = null; }
   if (client) {
     try { await client.destroy(); } catch {}
     client = null;
-    estado = 'desconectado';
-    infoConexion = null;
-    qrCode = null;
+  }
+  estado = 'desconectado';
+  infoConexion = null;
+  qrCode = null;
+}
+
+async function asegurarConexion(maxMs = 15000) {
+  if (estado === 'conectado' && client && client.pupPage) return true;
+  if (desconexionManual) return false;
+  if (estado !== 'conectado') getEstado();
+  const limite = Date.now() + maxMs;
+  while (Date.now() < limite) {
+    if (estado === 'conectado') {
+      if (client && client.pupPage) return true;
+      if (!reconectando && !timerReconexion) programarReconexion('página del navegador no disponible');
+    } else if (estado === 'esperando_qr') {
+      return false;
+    }
+    await new Promise(r => setTimeout(r, 500));
+  }
+  return estado === 'conectado' && !!(client && client.pupPage);
+}
+
+async function asegurarListo(maxMs) {
+  if (estado === 'conectado' && client && client.pupPage) return;
+  const ok = await asegurarConexion(maxMs);
+  if (!ok) {
+    throw new Error(estado === 'esperando_qr'
+      ? 'WhatsApp requiere escanear el QR'
+      : 'WhatsApp no conectado');
   }
 }
 
@@ -96,7 +181,7 @@ function getChatId(telefono) {
 }
 
 async function enviarMensaje(telefono, texto) {
-  if (!client || estado !== 'conectado') throw new Error('WhatsApp no conectado');
+  await asegurarListo();
   const chatId = getChatId(telefono);
   const remitente = client.info?.wid?.user || 'desconocido';
   console.log(`[WA] ENVIAR: remitente=${remitente} -> destinatario=${chatId}`);
@@ -105,7 +190,7 @@ async function enviarMensaje(telefono, texto) {
 }
 
 async function enviarImagen(telefono, imagenUrl, caption = '') {
-  if (!client || estado !== 'conectado') throw new Error('WhatsApp no conectado');
+  await asegurarListo();
   const chatId = getChatId(telefono);
   console.log(`[WA] Descargando imagen: ${imagenUrl}`);
   let media;
@@ -121,7 +206,7 @@ async function enviarImagen(telefono, imagenUrl, caption = '') {
 }
 
 async function enviarArchivoLocal(telefono, filePath, caption = '', sendAsDocument = true) {
-  if (!client || estado !== 'conectado') throw new Error('WhatsApp no conectado');
+  await asegurarListo();
   if (!fs.existsSync(filePath)) throw new Error('Archivo no encontrado');
   const chatId = getChatId(telefono);
   const media = MessageMedia.fromFilePath(filePath);
@@ -133,7 +218,7 @@ async function enviarArchivoLocal(telefono, filePath, caption = '', sendAsDocume
 }
 
 async function enviarArchivoBuffer(telefono, buffer, mimeType, filename, caption = '', sendAsDocument = true) {
-  if (!client || estado !== 'conectado') throw new Error('WhatsApp no conectado');
+  await asegurarListo();
   const chatId = getChatId(telefono);
   const media = new MessageMedia(mimeType, buffer.toString('base64'), filename);
   const result = await client.sendMessage(chatId, media, {
@@ -144,7 +229,7 @@ async function enviarArchivoBuffer(telefono, buffer, mimeType, filename, caption
 }
 
 async function enviarMixto(telefono, { mensaje, imagenUrl, archivos }) {
-  if (!client || estado !== 'conectado') throw new Error('WhatsApp no conectado');
+  await asegurarListo();
   const chatId = getChatId(telefono);
   const resultados = [];
 
@@ -173,7 +258,7 @@ async function enviarMixto(telefono, { mensaje, imagenUrl, archivos }) {
 }
 
 async function getContactos(busqueda = '') {
-  if (!client || estado !== 'conectado') throw new Error('WhatsApp no conectado');
+  await asegurarListo();
 
   try {
     if (!client.pupPage) {
@@ -207,6 +292,7 @@ module.exports = {
   getEstado,
   getQR,
   desconectar,
+  asegurarConexion,
   enviarMensaje,
   enviarImagen,
   enviarArchivoLocal,

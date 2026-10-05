@@ -244,9 +244,15 @@ router.post('/enviar-vencimiento', async (req, res) => {
     return res.status(400).json({ error: 'Faltan documentos o rango' });
   }
 
-  const estado = wa.getEstado();
-  if (estado.estado !== 'conectado') {
-    return res.status(503).json({ error: 'WhatsApp no está conectado' });
+  if (wa.getEstado().estado !== 'conectado') {
+    const conectado = await wa.asegurarConexion(20000);
+    if (!conectado) {
+      const est = wa.getEstado().estado;
+      return res.status(503).json({
+        error: est === 'esperando_qr' ? 'WhatsApp requiere escanear el QR' : 'WhatsApp no está conectado',
+        estado: est
+      });
+    }
   }
 
   try {

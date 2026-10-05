@@ -302,9 +302,12 @@ export default function WhatsAppScreen() {
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primario)', marginBottom: 8 }}>Conexión / Reconexión</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: estado?.estado === 'conectado' ? '#27ae60' : '#e74c3c', display: 'inline-block' }} />
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: estado?.estado === 'conectado' ? '#27ae60' : (estado?.estado === 'reconectando' || estado?.estado === 'iniciando') ? '#f5b041' : '#e74c3c', display: 'inline-block' }} />
             <span style={{ fontSize: 14, color: 'var(--texto)' }}>
-              {estado?.estado === 'conectado' ? `Conectado: ${estado.conexion?.nombre} (+51${estado.conexion?.telefono})` : 'No conectado'}
+              {estado?.estado === 'conectado' ? `Conectado: ${estado.conexion?.nombre} (+51${estado.conexion?.telefono})`
+                : estado?.estado === 'reconectando' ? 'Reconectando...'
+                : estado?.estado === 'iniciando' ? 'Conectando...'
+                : 'No conectado'}
             </span>
           </div>
           <button onClick={reconectar} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 6, border: '1px solid var(--borde)', background: 'var(--fondo)', cursor: 'pointer' }}>Reconectar</button>
