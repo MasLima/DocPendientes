@@ -339,6 +339,13 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
 
   const micActivo = dictando !== null;
   const micRojo = '#e74c3c';
+  const scrollRef = useRef(null);
+
+  // Al escribir en las áreas largas, hace scroll hacia arriba para que el texto
+  // no quede cubierto por el teclado (Android: KeyboardAvoidingView no alcanza solo).
+  const onScrollEnd = () => {
+    if (scrollRef.current) scrollRef.current.scrollToEnd({ animated: true });
+  };
 
   if (cargandoEdicion) {
     return (
@@ -351,9 +358,10 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 70}
     >
-      <ScrollView style={[styles.container, { backgroundColor: tema.fondo }]} contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} style={[styles.container, { backgroundColor: tema.fondo }]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 70} showsVerticalScrollIndicator={true}>
         <Text style={[styles.label, { color: tema.primario }]}>Cliente (obligatorio)</Text>
         {otrosClientes && (
           <Text style={[styles.avisoOtros, { backgroundColor: `${tema.celeste}22`, color: tema.primario }]}>
@@ -431,6 +439,7 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
           placeholder={dictando === 'desc' ? 'Escuchando...' : 'Describe lo encontrado en la visita...'}
           placeholderTextColor={dictando === 'desc' ? micRojo : tema.textoSuave}
           multiline
+          onChangeText={(t) => { setDescripcion(t); onScrollEnd(); }}
         />
         {dictando === 'desc' && !!previewDictado && (
           <Text style={[styles.previewDictado, { color: micRojo }]}>{previewDictado}</Text>
@@ -464,6 +473,7 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
           placeholder={dictando === 'accion' ? 'Escuchando...' : 'Compromiso, promesa de pago, observaciones...'}
           placeholderTextColor={dictando === 'accion' ? micRojo : tema.textoSuave}
           multiline
+          onChangeText={(t) => { setAccion(t); onScrollEnd(); }}
         />
         {dictando === 'accion' && !!previewDictado && (
           <Text style={[styles.previewDictado, { color: micRojo }]}>{previewDictado}</Text>
