@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -45,6 +45,9 @@ export default function Actualizador() {
       const res = await fetch(`${API_URL}/version`, { signal: ctrl.signal });
       clearTimeout(timeout);
       if (!res.ok) return;
+      // Un app.js desactualizado responde con el HTML de la web (fallback SPA).
+      // Ese caso lo tratamos como "sin informacion de version".
+      if (!(res.headers.get('content-type') || '').includes('json')) return;
       const data = await res.json();
       const actual = Constants.expoConfig?.version;
       if (!data.version || !esVersionMayor(data.version, actual)) return;
@@ -58,9 +61,17 @@ export default function Actualizador() {
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
+    verificar();
     // Pequena espera para no competir con la carga inicial de la app
     const t = setTimeout(verificar, 4000);
-    return () => clearTimeout(t);
+    // Re-verifica al volver a la app (Android la deja en RAM: al reabrirla
+    // no se vuelve a montar el componente y sin esto jamas se entera).
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') verificar();
+    });
+    // Y cada 15 minutos mientras este abierta
+    const intervalo = setInterval(verificar, 15 * 60 * 1000);
+    return () => { clearTimeout(t); clearInterval(intervalo); sub.remove(); };
   }, [verificar]);
 
   const despues = useCallback(async () => {
