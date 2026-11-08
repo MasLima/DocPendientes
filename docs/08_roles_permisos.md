@@ -11,15 +11,15 @@ La BD local (`cobranza_app`) almacena el modelo en 3 tablas:
 | Tabla | Contenido |
 |---|---|
 | `usuarios_app` | usuarios con columnas `rol` y `permisos` (JSON) |
-| `permisos` | catálogo de 23 códigos de permiso (10 módulos) |
-| `roles_permisos` | asignación por perfil: admin=23, gerencia=21, sistemas=21, empleado=14, vendedor=11, contabilidad=8 |
+| `permisos` | catálogo de 24 códigos de permiso (11 módulos) |
+| `roles_permisos` | asignación por perfil: admin=24, gerencia=22, sistemas=22, empleado=14, vendedor=11, contabilidad=8 |
 
 La columna `usuarios_app.permisos` es un **JSON con los permisos efectivos** del
 usuario. Si es `NULL`, al iniciar sesión se calculan desde `roles_permisos`. Si
 se indica un JSON, se usan esos (prefijo `-` en un código lo quita del conjunto
 base): permite **personalizar** permisos por usuario.
 
-### Catálogo de permisos (23)
+### Catálogo de permisos (24)
 
 | Código | Módulo | Descripción |
 |---|---|---|
@@ -46,15 +46,16 @@ base): permite **personalizar** permisos por usuario.
 | `vencimientos.config` | vencimientos | Administrar rangos de vencimiento (CRUD) |
 | `whatsapp.ver` | whatsapp | Ver el módulo de WhatsApp |
 | `whatsapp.enviar` | whatsapp | Enviar mensajes de WhatsApp |
+| `mapas.ver` | mapas | Ver mapas de ubicaciones (clientes y vendedores) |
 
 ### Roles estándar
 
 | Rol | Permisos | Alcance de datos |
 |---|---|---|
-| `admin` | 23 (todos) | Todos (incluye Configuración y WhatsApp) |
-| `gerencia` | 21 (sin `whatsapp.*`) | Todos |
-| `sistemas` | 21 (sin `whatsapp.*`) | Todos |
-| `empleado` | 14 (sin `config.*`, `sync.*`, `vencimientos.config`, `whatsapp.*`) | Todos (ver_todos) |
+| `admin` | 24 (todos) | Todos (incluye Configuración y WhatsApp) |
+| `gerencia` | 22 (sin `whatsapp.*`) | Todos |
+| `sistemas` | 22 (sin `whatsapp.*`) | Todos |
+| `empleado` | 14 (sin `config.*`, `sync.*`, `vencimientos.config`, `whatsapp.*`, `mapas.ver`) | Todos (ver_todos) |
 | `vendedor` | 11 (sin `*_todos`, sin config/sync/vencimientos) | Solo los suyos |
 | `contabilidad` | 8 (artículos, clientes, dashboard, reportes) | Todos |
 

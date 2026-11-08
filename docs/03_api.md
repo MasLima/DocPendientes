@@ -52,13 +52,14 @@ El token se obtiene en el login y dura 12 horas (configurable en `.env`).
 | GET | `/api/clientes/resumen` | Resumen de saldos por moneda |
 | GET | `/api/clientes/vencimientos` | Documentos vencidos (`?cliente=`) para la pestaña Vencimientos |
 | GET | `/api/clientes/:codigo` | Detalle: datos + resumen saldos + documentos |
+| GET | `/api/clientes/:codigo/ubicacion` | Punto de referencia GPS del cliente → `{ lat, lng, gps_acc, actualizado, visitas, umbral_m, umbral_global, umbral_tope }` o `null` |
 | GET | `/api/documentos` | Pendientes con filtros `?cliente=&vencido=1&moneda=` |
-| GET | `/api/incidencias` | Incidencias (`?todos=1` requiere permiso) |
+| GET | `/api/incidencias` | Incidencias (`?todos=1` requiere permiso); incluye GPS `inc_lat/inc_lng/inc_gps_acc/inc_gps_fec` |
 | GET | `/api/incidencias/frecuencia` | Frecuencia de visitas por cliente |
 | GET | `/api/incidencias/cliente/:codigo` | Incidencias de un cliente |
 | GET | `/api/incidencias/:id` | Incidencia + detalle |
-| POST | `/api/incidencias` | Body `{ ter_cote, inc_desc, inc_acci }` |
-| PUT | `/api/incidencias/:codi` | Editar incidencia local (permiso `incidencias.editar`) |
+| POST | `/api/incidencias` | Body `{ ter_cote, inc_desc, inc_acci }` + GPS opcional `{ inc_lat, inc_lng, inc_gps_acc, actualizar_cliente }` |
+| PUT | `/api/incidencias/:codi` | Editar incidencia local (permiso `incidencias.editar`). **Ignora cualquier coordenada**: al editar no se toca el GPS |
 | POST/GET | `/api/incidencias/:codi/audio` | Nota de voz (subir / obtener) |
 | GET | `/api/reportes/saldos-por-cliente` | Resumen por cliente (con vencidos) |
 | GET | `/api/reportes/saldos-por-vendedor` | Resumen global |
@@ -85,6 +86,10 @@ El token se obtiene en el login y dura 12 horas (configurable en `.env`).
 | POST | `/api/whatsapp/enviar-vencimiento` | Envío por cliente de la pestaña Vencimientos; body admite `mensaje` (texto editado que reemplaza el template) |
 | GET | `/api/config/vencimientos` | Rangos de vencimiento (`vencimientos.config`) |
 | POST/PUT/DELETE | `/api/config/vencimientos[/:id]` | CRUD de rangos (`vencimientos.config`) |
+| GET | `/api/mapas/clientes` | Clientes con punto de referencia GPS (`mapas.ver`) |
+| GET | `/api/mapas/vendedores` | Última posición GPS de cada vendedor = su última visita con coordenadas, **no es rastreo en vivo** (`mapas.ver`) |
+| GET | `/api/mapas/config` | Umbrales GPS globales (`mapas.ver`) |
+| PUT | `/api/mapas/config` | Guardar `umbral_global` / `umbral_tope` en metros (`config.ver`) |
 
 ## WhatsApp: conexión y reconexión
 
@@ -102,6 +107,31 @@ El token se obtiene en el login y dura 12 horas (configurable en `.env`).
   `WhatsApp requiere escanear el QR`.
 - `POST /desconectar` es una desconexión **manual**: ya no la revierte el
   polling de estado (hay que volver a `/conectar`).
+
+## GPS de visitas (incidencias)
+
+La app móvil (registrando una visita nueva) captura la ubicación al abrir la
+pantalla (solo modo NUEVO; **al editar nunca se captura ni se modifica el GPS**):
+
+```sql
+-- sql/15_gps_incidencias.sql
+incidencias: inc_lat, inc_lng, inc_gps_acc, inc_gps_fec
+cliente_ubicaciones: punto de referencia confirmado por visita
+config_gps: umbral_global (300), umbral_tope (2000)
+```
+
+- El POST admite `inc_lat / inc_lng / inc_gps_acc` y el flag
+  `actualizar_cliente` (true solo si el vendedor confirmó el diálogo de la app).
+- Si el cliente **no tenía** punto de referencia y el vendedor confirma
+  "¿Estás en el local?", se crea el punto (`cliente_ubicaciones`).
+- Con punto existente y distancia > umbral (300 m global, configurable por
+  cliente con `umbral_m`), la app pregunta actualizar; la API solo mueve el
+  punto si la nueva posición está dentro del `umbral_tope` (evita mover el
+  punto si el GPS salto en otro lugar). La respuesta del POST incluye
+  `referencia: { accion: creada|actualizada|rechazada|sin_cambio }`.
+- Mapas web (`/mapas`, permiso `mapas.ver`): marcadores de clientes con su
+  punto y la última posición de cada vendedor según la fecha de su última
+  visita con GPS (**no es rastreo en vivo**).
 
 ## Ejemplos (PowerShell)
 

@@ -14,6 +14,53 @@ function limpiarDesc(s) {
 }
 
 // ============================================================
+// GPS DE VISITAS
+// - La app (movil) captura la ubicacion al registrar la visita y
+//   la envia en el POST (lat/lng/precision + fecha de captura).
+// - Al EDITAR (PUT) NO se captura ni se toca ninguna coordenada.
+// - cliente_ubicaciones guarda el punto de referencia del cliente
+//   SOLO cuando el vendedor confirma (flag actualizar_cliente).
+//   Confirma el punto nuevo la primera vez o cuando la diferencia
+//   supera el umbral (configurable: configgps / por cliente).
+// ============================================================
+
+const CAMPOS_GPS = 'i.inc_lat, i.inc_lng, i.inc_gps_acc, i.inc_gps_fec';
+
+// Valida y normaliza el bloque de coordenadas del body.
+// Devuelve {lat, lng, acc} o null si no vienen coords.
+function coordsDelBody(body) {
+  const lat = Number(body.inc_lat);
+  const lng = Number(body.inc_lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  const acc = Number(body.inc_gps_acc);
+  return { lat, lng, acc: Number.isFinite(acc) ? Math.min(Math.max(Math.round(acc), 0), 99999) : null };
+}
+
+// distancia entre dos puntos (metros), formula haversine
+function distanciaMetro(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const rad = (x) => (x * Math.PI) / 180;
+  const dLat = rad(lat2 - lat1);
+  const dLng = rad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Config global: { umbral_global, umbral_tope } en metros (valores numericos)
+async function configGps() {
+  const [rows] = await pool.query('SELECT clave, valor FROM config_gps');
+  const mapa = {};
+  rows.forEach((r) => { mapa[r.clave] = r.valor; });
+  return {
+    umbral_global: Number(mapa.umbral_global) || 300,
+    umbral_tope: Number(mapa.umbral_tope) || 2000
+  };
+}
+
+// ============================================================
 // INCIDENCIAS
 // - 'incidencias.ver_todas' (admin/empleado) => ve las de todos.
 // - Sin el permiso (vendedor) => solo las propias (use_emno).
@@ -70,7 +117,7 @@ router.get('/', async (req, res) => {
               i.use_emno, v.ter_deno AS vendedor_nombre,
               i.inc_cont, i.inc_desc, i.inc_acci,
               i.fe_regi, i.fe_aten, i.fe_resu, i.inc_esta, i.inc_estc,
-              i.sincronizada
+              i.sincronizada, ${CAMPOS_GPS}
        FROM incidencias i
        LEFT JOIN clientes c ON c.ter_cote = i.ter_cote
        LEFT JOIN vendedores v ON v.ter_cote = i.use_emno
@@ -155,7 +202,8 @@ router.get('/cliente/:codigo', async (req, res) => {
       `SELECT i.inc_codi, i.inc_codi_erp, i.ter_cote, c.ter_deno AS cliente_nombre,
               i.use_emno, v.ter_deno AS vendedor_nombre,
               i.inc_cont, i.inc_desc, i.inc_acci,
-              i.fe_regi, i.fe_aten, i.fe_resu, i.inc_esta, i.inc_estc
+              i.fe_regi, i.fe_aten, i.fe_resu, i.inc_esta, i.inc_estc,
+              ${CAMPOS_GPS}
        FROM incidencias i
        LEFT JOIN clientes c ON c.ter_cote = i.ter_cote
        LEFT JOIN vendedores v ON v.ter_cote = i.use_emno
@@ -177,7 +225,8 @@ router.get('/:id', async (req, res) => {
     const [rows] = await pool.query(
       `SELECT i.inc_codi, i.inc_codi_erp, i.ter_cote, c.ter_deno AS cliente_nombre,
               i.inc_cont, i.inc_desc, i.inc_acci,
-              i.fe_regi, i.fe_aten, i.fe_resu, i.inc_esta, i.inc_estc
+              i.fe_regi, i.fe_aten, i.fe_resu, i.inc_esta, i.inc_estc,
+              ${CAMPOS_GPS}
        FROM incidencias i
        LEFT JOIN clientes c ON c.ter_cote = i.ter_cote
        WHERE i.inc_codi = ?`,
@@ -202,7 +251,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // Registrar nueva incidencia (SIEMPRE ligada a un cliente).
-// Body: { ter_cote, inc_desc, inc_acci, fe_aten }
+// Body: { ter_cote, inc_desc, inc_acci, fe_aten,
+//         inc_lat, inc_lng, inc_gps_acc,      <- GPS opcional (movil)
+//         actualizar_cliente }                 <- true si el vendedor confirmo
+//                                                guardar/actualizar el punto de
+//                                                referencia del cliente
 router.post('/', async (req, res) => {
   const { ter_cote, inc_cont, inc_desc, inc_acci, fe_aten } = req.body;
   if (!inc_desc) {
@@ -212,6 +265,9 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'La incidencia debe estar ligada a un cliente (ter_cote)' });
   }
 
+  const coords = coordsDelBody(req.body);
+  const actualizarCliente = coords && req.body.actualizar_cliente === true;
+
   const conexion = await pool.getConnection();
   try {
     await conexion.beginTransaction();
@@ -219,14 +275,58 @@ router.post('/', async (req, res) => {
     const [result] = await conexion.query(
       `INSERT INTO incidencias
          (ter_cote, use_emno, inc_cont, inc_desc, inc_acci,
-          fe_regi, fe_aten, inc_esta, inc_estc, sincronizada)
-       VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 1, 1, 0)`,
-      [ter_cote, req.user.ter_cote, inc_cont || null, inc_desc, inc_acci || null, fe_aten || null]
+          fe_regi, fe_aten, inc_esta, inc_estc, sincronizada,
+          inc_lat, inc_lng, inc_gps_acc, inc_gps_fec)
+       VALUES (?, ?, ?, ?, ?, CURDATE(), ?, 1, 1, 0, ?, ?, ?, NOW())`,
+      [ter_cote, req.user.ter_cote, inc_cont || null, inc_desc, inc_acci || null, fe_aten || null,
+       coords ? coords.lat : null, coords ? coords.lng : null, coords ? coords.acc : null]
     );
+
+    // ---- Punto de referencia del cliente ----
+    // Solo se guarda/actualiza si el vendedor lo confirmo desde la app.
+    let referencia = null;
+    if (coords && req.body.actualizar_cliente !== undefined) {
+      const [refs] = await conexion.query(
+        'SELECT ter_cote, lat, lng, visitas, umbral_m FROM cliente_ubicaciones WHERE ter_cote = ?',
+        [ter_cote]
+      );
+      const cfg = await configGps();
+
+      if (refs.length === 0 && actualizarCliente) {
+        await conexion.query(
+          `INSERT INTO cliente_ubicaciones (ter_cote, lat, lng, gps_acc, actualizado, visitas)
+           VALUES (?, ?, ?, ?, NOW(), 1)`,
+          [ter_cote, coords.lat, coords.lng, coords.acc]
+        );
+        referencia = { accion: 'creada', lat: coords.lat, lng: coords.lng, visitas: 1 };
+      } else if (refs.length > 0) {
+        const ref = refs[0];
+        const umbral = ref.umbral_m || cfg.umbral_global;
+        const dist = distanciaMetro(Number(ref.lat), Number(ref.lng), coords.lat, coords.lng);
+        if (actualizarCliente) {
+          if (dist <= cfg.umbral_tope) {
+            await conexion.query(
+              `UPDATE cliente_ubicaciones
+               SET lat = ?, lng = ?, gps_acc = ?, actualizado = NOW(), visitas = visitas + 1
+               WHERE ter_cote = ?`,
+              [coords.lat, coords.lng, coords.acc, ter_cote]
+            );
+            referencia = { accion: 'actualizada', lat: coords.lat, lng: coords.lng, visitas: ref.visitas + 1 };
+          } else {
+            // A mas del tope: guarda la visita con sus coords pero NO mueve
+            // el punto de referencia (posible GPS disparado en otro lugar).
+            referencia = { accion: 'rechazada', motivo: 'fuera_del_tope', dist: Math.round(dist) };
+          }
+        } else {
+          referencia = { accion: 'sin_cambio', dist: Math.round(dist), umbral };
+        }
+      }
+    }
 
     await conexion.commit();
     res.status(201).json({
       inc_codi: result.insertId,
+      referencia,
       message: 'Incidencia registrada (pendiente de envio al ERP)'
     });
   } catch (err) {
@@ -240,6 +340,8 @@ router.post('/', async (req, res) => {
 
 // Editar una incidencia (solo la propia o con permiso 'incidencias.ver_todas').
 // Body: { inc_desc, inc_acci?, inc_estc? }
+// IMPORTANTE: al editar NO se captura ni se modifica ninguna coordenada
+// GPS — los campos inc_lat/inc_lng/inc_gps_* que envie el body se ignoran.
 // Las incidencias originadas en el ERP (inc_codi_erp) NO se editan porque
 // la sincronizacion ERP -> App las sobreescribiria en la proxima corrida.
 router.put('/:codi', async (req, res) => {
@@ -367,3 +469,4 @@ router.get('/:codi/audio', async (req, res) => {
 });
 
 module.exports = router;
+module.exports.configGps = configGps;

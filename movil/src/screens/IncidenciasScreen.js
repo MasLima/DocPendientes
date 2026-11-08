@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, RefreshControl,
-  ScrollView, Modal, TextInput
+  ScrollView, Modal, TextInput, Linking
 } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -290,6 +290,16 @@ export default function IncidenciasScreen({ navigation }) {
                   <Text style={[styles.cliente, { color: tema.texto }]}>{item.cliente_nombre || item.ter_cote || 'Sin cliente'}</Text>
                   {item.vendedor_nombre ? <Text style={{ color: tema.textoSuave, fontSize: 12 }}>{item.vendedor_nombre}</Text> : null}
                   <Text style={[styles.desc, { color: tema.textoSuave }]} numberOfLines={2}>{item.inc_desc}</Text>
+                  {item.inc_lat != null && item.inc_lng != null && (
+                    <TouchableOpacity
+                      style={{ marginTop: 6, alignSelf: 'flex-start', backgroundColor: '#e8f5e9', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
+                      onPress={() => Linking.openURL(`https://www.google.com/maps?q=${item.inc_lat},${item.inc_lng}`)}
+                    >
+                      <Text style={{ fontSize: 11, color: '#27ae60', fontWeight: '600' }}>
+                        📍 {Number(item.inc_lat).toFixed(5)}, {Number(item.inc_lng).toFixed(5)}{item.inc_gps_acc ? ` (±${item.inc_gps_acc} m)` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                   <Text style={[styles.fecha, { color: tema.textoSuave }]}>{item.fe_regi}</Text>
                 </View>
               )}

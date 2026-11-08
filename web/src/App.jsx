@@ -19,6 +19,7 @@ import ConfigPerfilesScreen from './screens/ConfigPerfilesScreen';
 import ArticulosScreen from './screens/ArticulosScreen';
 import ArticuloDetalleScreen from './screens/ArticuloDetalleScreen';
 import WhatsAppScreen from './screens/WhatsAppScreen';
+import MapaScreen from './screens/MapaScreen';
 
 function ThemedApp() {
   const { tema } = useTema();
@@ -55,6 +56,7 @@ function ThemedApp() {
           <Route path="/articulos" element={<ArticulosScreen />} />
           <Route path="/articulos/:codigo" element={<ArticuloDetalleScreen />} />
           <Route path="/whatsapp" element={<WhatsAppScreen />} />
+          <Route path="/mapas" element={<MapaScreen />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

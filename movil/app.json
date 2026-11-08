@@ -2,7 +2,7 @@
   "expo": {
     "name": "movil",
     "slug": "cobranza",
-    "version": "1.5.1",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "com.docpendientes.cobranza",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -20,6 +20,8 @@
       },
       "permissions": [
         "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
         "RECORD_AUDIO",
         "REQUEST_INSTALL_PACKAGES"
       ]
@@ -31,6 +33,12 @@
       "@react-native-community/datetimepicker",
       "./plugins/withCleartextTraffic",
       "./plugins/withAbiFilters",
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
       [
         "expo-speech-recognition",
         {

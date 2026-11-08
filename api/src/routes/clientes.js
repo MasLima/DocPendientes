@@ -1,5 +1,7 @@
 const router = require('express').Router();
 const pool = require('../config/db');
+const { requirePermiso } = require('../middleware/permisos');
+const { configGps } = require('./incidencias');
 
 // Construye el WHERE comun del listado de clientes segun el rol y los filtros.
 // Devuelve { where, params, puedeTodos } listos para usar en un query.
@@ -322,6 +324,53 @@ router.get('/vencimientos', async (req, res) => {
     }
 
     res.json({ rangos: resultado, total: { cantidad: totalCant, saldo_pen: totalSaldo } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Ubicacion (punto de referencia GPS) de un cliente.
+// La consulta la hace la app al abrir "Nueva incidencia" para decidir
+// que preguntar: registrar el punto la primera vez (si no hay referencia)
+// o actualizarlo (si la visita queda lejos del punto guardado).
+// GET /api/clientes/:codigo/ubicacion
+// -> { lat, lng, gps_acc, actualizado, visitas, umbral_m,
+//      umbral_global, umbral_tope } | null
+router.get('/:codigo/ubicacion', async (req, res) => {
+  try {
+    const permisos = req.user.permisos || [];
+    const [cli] = await pool.query(
+      'SELECT ter_cote, ter_core FROM clientes WHERE ter_cote = ?',
+      [req.params.codigo]
+    );
+    if (cli.length === 0) return res.status(404).json({ error: 'Cliente no encontrado' });
+
+    // Un vendedor solo ve la ubicacion de clientes de su cartera
+    // (o de clientes que puede buscar para registrar incidencias).
+    const puedeTodo = permisos.includes('clientes.ver_todos') || permisos.includes('incidencias.todas');
+    if (!puedeTodo && cli[0].ter_core !== req.user.ter_cote) {
+      return res.status(403).json({ error: 'Cliente fuera de su cartera' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT ter_cote, lat, lng, gps_acc, actualizado, visitas, umbral_m FROM cliente_ubicaciones WHERE ter_cote = ?',
+      [req.params.codigo]
+    );
+    if (rows.length === 0) return res.json(null);
+
+    const cfg = await configGps(); // compartida con incidencias.js
+    const r = rows[0];
+    res.json({
+      lat: Number(r.lat),
+      lng: Number(r.lng),
+      gps_acc: r.gps_acc,
+      actualizado: r.actualizado,
+      visitas: r.visitas,
+      umbral_m: r.umbral_m,
+      umbral_global: cfg.umbral_global,
+      umbral_tope: cfg.umbral_tope
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error interno del servidor' });

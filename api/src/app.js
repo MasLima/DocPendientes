@@ -70,6 +70,7 @@ app.use('/api/dashboard', auth, require('./routes/dashboard'));
 app.use('/api/articulos', auth, require('./routes/articulos'));
 app.use('/api/whatsapp', auth, require('./routes/whatsapp'));
 app.use('/api/config/vencimientos', auth, require('./routes/configVencimientos'));
+app.use('/api/mapas', auth, require('./routes/mapas'));
 
 app.get('/api/health', async (req, res) => {
   try {

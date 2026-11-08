@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, RefreshControl
+  View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, RefreshControl, Linking
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
@@ -127,6 +127,16 @@ export default function IncidenciasClienteScreen({ route, navigation }) {
               <Text style={[styles.cardDesc, { color: tema.texto }]} numberOfLines={2}>{item.inc_desc}</Text>
               {item.inc_acci ? <Text style={[styles.cardAcci, { color: tema.primario }]}>Acción: {item.inc_acci}</Text> : null}
               <Text style={[styles.cardFecha, { color: tema.textoSuave }]}>{item.fe_regi}</Text>
+              {item.inc_lat != null && item.inc_lng != null && (
+                <TouchableOpacity
+                  style={{ marginTop: 6, alignSelf: 'flex-start', backgroundColor: '#e8f5e9', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}
+                  onPress={() => Linking.openURL(`https://www.google.com/maps?q=${item.inc_lat},${item.inc_lng}`)}
+                >
+                  <Text style={{ fontSize: 11, color: '#27ae60', fontWeight: '600' }}>
+                    📍 {Number(item.inc_lat).toFixed(5)}, {Number(item.inc_lng).toFixed(5)}{item.inc_gps_acc ? ` (±${item.inc_gps_acc} m)` : ''}
+                  </Text>
+                </TouchableOpacity>
+              )}
               {item.sincronizada === 0 && (
                 <Text style={styles.sinSync}>Pendiente de sincronizar</Text>
               )}

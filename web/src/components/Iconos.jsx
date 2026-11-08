@@ -282,6 +282,17 @@ export function UndoIcon({ size = 20 }) {
   );
 }
 
+export function MapIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 512 512" {...base}>
+      <path d="M314.54 485.41l-125.08-52.57a16 16 0 0 0-12.74 0L56 474.57V121.75l120.94-61 125.08 52.57a16 16 0 0 0 12.74 0L456 97.37v352.82l-120.94 61a16 16 0 0 0-12.74 0z" />
+      <line x1="216" y1="48.4" x2="216" y2="431.86" />
+      <line x1="296" y1="80.14" x2="296" y2="463.6" />
+      <circle cx="248" cy="240" r="32" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 // Mapeo de las opciones del menú.
 export function iconoDeMenu(ruta) {
   switch (ruta) {
@@ -295,6 +306,8 @@ export function iconoDeMenu(ruta) {
       return <BarChartIcon />;
     case '/incidencias':
       return <ChatbubbleIcon />;
+    case '/mapas':
+      return <MapIcon />;
     case '/configuracion':
       return <SettingsIcon />;
     default:

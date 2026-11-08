@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiGet } from '../api/client';
 import Exportar from '../components/Exportar';
+import GpsChip from '../components/GpsChip';
 import { PlusIcon } from '../components/Iconos';
 
 const POR_PAGINA_INC = 15;
@@ -137,7 +138,7 @@ export default function IncidenciasClienteScreen() {
         <>
           <table className="tabla">
             <thead>
-              <tr><th>#</th><th>Vendedor</th><th>Descripción</th><th>Acción</th><th>Fecha</th><th>Estado</th>{puedeEditar && <th style={{ width: 50 }}></th>}</tr>
+              <tr><th>#</th><th>Vendedor</th><th>Descripción</th><th>Acción</th><th>Fecha</th><th>Ubicación</th><th>Estado</th>{puedeEditar && <th style={{ width: 50 }}></th>}</tr>
             </thead>
             <tbody>
               {incidenciasVisibles.map((it) => (
@@ -147,6 +148,7 @@ export default function IncidenciasClienteScreen() {
                   <td style={{ maxWidth: 360 }}>{it.inc_desc}</td>
                   <td style={{ maxWidth: 240 }}>{it.inc_acci || '-'}</td>
                   <td className="mono">{it.fe_regi}</td>
+                  <td><GpsChip lat={it.inc_lat} lng={it.inc_lng} acc={it.inc_gps_acc} fec={it.inc_gps_fec} /></td>
                   <td><span className="badge" style={{ backgroundColor: estadoColor(it.inc_estc) }}>{estadoTexto(it.inc_estc)}</span></td>
                   {puedeEditar && (
                     <td>
@@ -165,7 +167,7 @@ export default function IncidenciasClienteScreen() {
                 </tr>
               ))}
               {incidenciasVisibles.length === 0 && (
-                <tr><td colSpan={puedeEditar ? 7 : 6} className="vacio">Sin incidencias</td></tr>
+                <tr><td colSpan={puedeEditar ? 8 : 7} className="vacio">Sin incidencias</td></tr>
               )}
             </tbody>
           </table>

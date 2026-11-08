@@ -22,12 +22,27 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync
 } from 'expo-audio';
+import * as Location from 'expo-location';
 
 const ESTADOS = [
   { valor: 1, texto: 'Registrada' },
   { valor: 2, texto: 'En proceso' },
   { valor: 3, texto: 'Resuelta' }
 ];
+
+// Distancia entre dos puntos (metros), formula haversine.
+// Se usa localmente para saber si la visita queda lejos del punto
+// de referencia guardado del cliente y así preguntar al vendedor.
+function distanciaMetros(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const rad = (x) => (x * Math.PI) / 180;
+  const dLat = rad(lat2 - lat1);
+  const dLng = rad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 // ===================== Reproductor de nota de voz =====================
 function ControlesNota({ uri, onEliminar }) {
@@ -91,6 +106,16 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
   const [grabandoNota, setGrabandoNota] = useState(false);
   const [notaUri, setNotaUri] = useState(null);
 
+  // ---- GPS de la visita (solo modo NUEVA: al editar no se captura) ----
+  const [gpsEstado, setGpsEstado] = useState('inactivo'); // inactivo|capturando|capturada|sinpermiso|error
+  const [gps, setGps] = useState(null); // { lat, lng, acc }
+  const [gpsMsj, setGpsMsj] = useState('');
+  // Punto de referencia del cliente (GET /clientes/:codigo/ubicacion)
+  const [refCliente, setRefCliente] = useState(null);
+  const [distRef, setDistRef] = useState(null);
+  const [actualizarRef, setActualizarRef] = useState(false);
+  const clienteCapturadoRef = useRef('');
+
   const buscarClientes = useCallback(async () => {
     if (!busqueda.trim()) return;
     setBuscando(true);
@@ -109,6 +134,96 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
       if (!ter_cote) buscarClientes();
     }, [ter_cote, buscarClientes])
   );
+
+  // ============================================================
+  // GPS: se captura al abrir la pantalla con el cliente cargado.
+  // - Sin datos de ubicacion del cliente -> pregunta "¿Estás en el
+  //   local?" para registrar el punto de referencia (solo con Sí).
+  // - Con referencia y la visita muy lejos del punto -> pregunta
+  //   "¿Actualizar el punto guardado?" (solo con Sí).
+  // - Falla de permiso/GPS: no bloquea, la incidencia se guarda
+  //   sin ubicacion (chip con Reintentar).
+  // ============================================================
+  const capturarUbicacion = async (codigoCliente) => {
+    if (!codigoCliente) return;
+    setGpsEstado('capturando');
+    setGpsMsj('');
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (!perm.granted) {
+        setGpsEstado('sinpermiso');
+        return;
+      }
+      const servicios = await Location.hasServicesEnabledAsync();
+      if (!servicios) {
+        setGpsEstado('error');
+        setGpsMsj('Los servicios de ubicación del teléfono están apagados');
+        return;
+      }
+
+      // Precision alta con tope de 10 s; si no llega, usa la ultima
+      // posicion conocida (suficiente para una visita cerca del local).
+      let pos = null;
+      try {
+        pos = await Promise.race([
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+          new Promise((resolve) => setTimeout(() => resolve(null), 10000))
+        ]);
+      } catch (e) { pos = null; }
+      if (!pos) {
+        try { pos = await Location.getLastKnownPositionAsync({ maxAge: 60000 }); } catch (e) { pos = null; }
+      }
+      if (!pos || !pos.coords) {
+        setGpsEstado('error');
+        setGpsMsj('No se pudo obtener la ubicación');
+        return;
+      }
+
+      const nuevo = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+      setGps(nuevo);
+      setGpsEstado('capturada');
+
+      // Decisión sobre el punto de referencia del cliente
+      try {
+        const ref = await apiGet(`/clientes/${codigoCliente}/ubicacion`, token);
+        setRefCliente(ref);
+        if (ref) {
+          const umbral = ref.umbral_m || ref.umbral_global || 300;
+          const dist = distanciaMetros(Number(ref.lat), Number(ref.lng), nuevo.lat, nuevo.lng);
+          setDistRef(Math.round(dist));
+          if (dist > umbral) {
+            Alert.alert(
+              'Cliente con punto guardado',
+              `Estás a ${Math.round(dist)} m del punto guardado de ${nombreCliente || codigoCliente}. ¿Actualizar el punto del cliente a tu ubicación actual?`,
+              [{ text: 'No', style: 'cancel' }, { text: 'Sí, actualizar', onPress: () => setActualizarRef(true) }]
+            );
+          }
+          // Dentro del umbral: el punto guardado sigue valido, no se pregunta.
+        } else {
+          setDistRef(null);
+          Alert.alert(
+            'Ubicación del cliente',
+            `¿Estás en el local de ${nombreCliente || codigoCliente}? Se registra tu ubicación actual como punto del cliente.`,
+            [{ text: 'No', style: 'cancel' }, { text: 'Sí', onPress: () => setActualizarRef(true) }]
+          );
+        }
+      } catch (e) {
+        // Sin informacion de referencia: igual guarda la visita con GPS.
+        setRefCliente(null);
+      }
+    } catch (e) {
+      setGpsEstado('error');
+      setGpsMsj('No se pudo capturar la ubicación');
+    }
+  };
+
+  // Dispara la captura una vez por cliente elegido (solo modo NUEVA).
+  useEffect(() => {
+    if (editarId || cargandoEdicion) return;
+    if (!cliente || clienteCapturadoRef.current === cliente) return;
+    clienteCapturadoRef.current = cliente;
+    capturarUbicacion(cliente);
+  }, [cliente, editarId, cargandoEdicion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Titulo segun modo
   useEffect(() => {
@@ -285,6 +400,7 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
     try {
       let codiAudio = null;
       if (editarId) {
+        // Al editar NO se captura ni se toca ninguna coordenada.
         await apiPut(`/incidencias/${editarId}`, {
           inc_desc: descripcion.trim(),
           inc_acci: accion.trim(),
@@ -292,11 +408,20 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
         }, token);
         codiAudio = editarId;
       } else {
-        const data = await apiPost('/incidencias', {
+        const body = {
           ter_cote: cliente,
           inc_desc: descripcion.trim(),
           inc_acci: accion.trim()
-        }, token);
+        };
+        // GPS capturado al abrir la pantalla (opcional).
+        if (gpsEstado === 'capturada' && gps) {
+          body.inc_lat = gps.lat;
+          body.inc_lng = gps.lng;
+          body.inc_gps_acc = gps.acc != null ? Math.round(gps.acc) : null;
+          // Solo si el vendedor confirmo en el dialogo.
+          body.actualizar_cliente = actualizarRef === true;
+        }
+        const data = await apiPost('/incidencias', body, token);
         codiAudio = data.inc_codi;
       }
 
@@ -409,6 +534,36 @@ export default function NuevaIncidenciaScreen({ route, navigation }) {
               </View>
             )}
           </>
+        )}
+
+        {/* GPS de la visita (solo registro nuevo; al editar no aparece) */}
+        {!editarId && gpsEstado !== 'inactivo' && (
+          <View
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 8,
+              marginTop: 8, padding: 8, borderRadius: 8,
+              backgroundColor: gpsEstado === 'capturada' ? '#e8f5e9'
+                : gpsEstado === 'error' ? '#fdeeca' : '#f1f2f6'
+            }}
+          >
+            <Text style={{ fontSize: 13, flex: 1, color: '#333' }}>
+              {gpsEstado === 'capturando' && '📍 Capturando ubicación...'}
+              {gpsEstado === 'capturada' && gps && (
+                `📍 Ubicación capturada (±${gps.acc != null ? Math.round(gps.acc) : '?'} m)` +
+                (distRef != null ? ` · ${distRef} m del punto del cliente` : '')
+              )}
+              {gpsEstado === 'sinpermiso' && '📍 Sin permiso de ubicación'}
+              {gpsEstado === 'error' && `📍 ${gpsMsj || 'No se pudo capturar la ubicación'}`}
+            </Text>
+            {(gpsEstado === 'sinpermiso' || gpsEstado === 'error') && (
+              <TouchableOpacity
+                style={{ backgroundColor: '#1a2b4c', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 }}
+                onPress={() => { setActualizarRef(false); capturarUbicacion(cliente); }}
+              >
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Reintentar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {/* Descripción + micrófono + emojis */}
