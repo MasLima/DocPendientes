@@ -1,83 +1,65 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 import API_URL from '../config';
 import { useTema } from '../context/ThemeContext';
+import {
+  getEstadoActualizacion,
+  suscribirActualizacion,
+  verificarActualizacion,
+  ignorarActualizacion,
+  versionInstalada
+} from '../services/actualizacion';
 
-const CLAVE_IGNORADO = 'actualizacion_ignorada';
 const PAQUETE = 'com.docpendientes.cobranza';
-
-function parseVersion(v) {
-  return String(v || '0').split('.').map((n) => parseInt(n, 10) || 0);
-}
-
-function esVersionMayor(a, b) {
-  const pa = parseVersion(a);
-  const pb = parseVersion(b);
-  const n = Math.max(pa.length, pb.length);
-  for (let i = 0; i < n; i++) {
-    const d = (pa[i] || 0) - (pb[i] || 0);
-    if (d !== 0) return d > 0;
-  }
-  return false;
-}
 
 // ============================================================
 // Actualizador automatico de la APK.
-// Consulta GET /api/version y, si hay una version mas reciente
-// que la instalada, ofrece descargarla e instalarla desde la
-// propia app (Android). "Despues" oculta el aviso para esa
-// version; cuando salga una mas nueva volvera a preguntar.
+// Consulta GET /api/version (logica en services/actualizacion) y,
+// si hay una version mas reciente que la instalada, ofrece
+// descargarla e instalarla desde la propia app (Android).
+// "Despues" oculta el aviso por 24 horas; la pantalla
+// Configuracion permite forzar la busqueda en cualquier momento.
 // ============================================================
 export default function Actualizador() {
   const { tema } = useTema();
   const [actualizacion, setActualizacion] = useState(null); // { version, nombre }
   const [descargando, setDescargando] = useState(false);
   const [progreso, setProgreso] = useState(0);
+  const descargandoRef = useRef(false);
 
-  const verificar = useCallback(async () => {
-    try {
-      const ctrl = new AbortController();
-      const timeout = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(`${API_URL}/version`, { signal: ctrl.signal });
-      clearTimeout(timeout);
-      if (!res.ok) return;
-      // Un app.js desactualizado responde con el HTML de la web (fallback SPA).
-      // Ese caso lo tratamos como "sin informacion de version".
-      if (!(res.headers.get('content-type') || '').includes('json')) return;
-      const data = await res.json();
-      const actual = Constants.expoConfig?.version;
-      if (!data.version || !esVersionMayor(data.version, actual)) return;
-      const ignorado = await AsyncStorage.getItem(CLAVE_IGNORADO);
-      if (ignorado === data.version) return;
-      setActualizacion({ version: data.version, nombre: data.nombre });
-    } catch (e) {
-      // Sin internet o API caida: se ignora silenciosamente
-    }
+  // Refleja el estado compartido: el modal solo se abre cuando hay
+  // una version nueva. "consultando" no lo cierra (evita parpadeos).
+  useEffect(() => {
+    const aplicar = (est) => {
+      if (est.estado === 'disponible') {
+        setActualizacion({ version: est.versionServidor, nombre: est.nombreServidor });
+      } else if ((est.estado === 'al_dia' || est.estado === 'ignorada') && !descargandoRef.current) {
+        setActualizacion(null);
+      }
+    };
+    aplicar(getEstadoActualizacion());
+    return suscribirActualizacion(aplicar);
   }, []);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return undefined;
-    verificar();
+    verificarActualizacion();
     // Pequena espera para no competir con la carga inicial de la app
-    const t = setTimeout(verificar, 4000);
+    const t = setTimeout(() => verificarActualizacion(), 4000);
     // Re-verifica al volver a la app (Android la deja en RAM: al reabrirla
     // no se vuelve a montar el componente y sin esto jamas se entera).
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') verificar();
+      if (s === 'active') verificarActualizacion();
     });
     // Y cada 15 minutos mientras este abierta
-    const intervalo = setInterval(verificar, 15 * 60 * 1000);
+    const intervalo = setInterval(() => verificarActualizacion(), 15 * 60 * 1000);
     return () => { clearTimeout(t); clearInterval(intervalo); sub.remove(); };
-  }, [verificar]);
+  }, []);
 
   const despues = useCallback(async () => {
-    if (actualizacion) {
-      try { await AsyncStorage.setItem(CLAVE_IGNORADO, actualizacion.version); } catch (e) {}
-    }
+    if (actualizacion) await ignorarActualizacion(actualizacion.version);
     setActualizacion(null);
   }, [actualizacion]);
 
@@ -85,11 +67,12 @@ export default function Actualizador() {
     if (!actualizacion || descargando) return;
     let uriDescargado = null;
     try {
+      descargandoRef.current = true;
       setDescargando(true);
       setProgreso(0);
       const destino = `${FileSystem.cacheDirectory}actualizacion.apk`;
       const tarea = FileSystem.createDownloadResumable(
-        `${API_URL}/download/apk`,
+        `${API_URL}/download/apk?t=${Date.now()}`,
         destino,
         {},
         (p) => {
@@ -113,7 +96,6 @@ export default function Actualizador() {
       // Al instalar, Android reemplaza la app y este proceso termina solo.
       setActualizacion(null);
     } catch (e) {
-      setDescargando(false);
       if (uriDescargado) {
         // La descarga salio bien: fallo el instalador (origen desconocido)
         Alert.alert(
@@ -130,12 +112,16 @@ export default function Actualizador() {
       } else {
         Alert.alert('No se pudo descargar', 'Verifica tu conexion e intenta de nuevo.');
       }
+    } finally {
+      descargandoRef.current = false;
+      setDescargando(false);
     }
   }, [actualizacion, descargando]);
 
   if (!actualizacion) return null;
 
   const porcentaje = Math.round(progreso * 100);
+  const instalada = versionInstalada();
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={descargando ? undefined : despues}>
@@ -144,6 +130,7 @@ export default function Actualizador() {
           <Text style={[estilos.titulo, { color: tema.primario }]}>Nueva versión disponible</Text>
           <Text style={[estilos.texto, { color: tema.textoSuave }]}>
             Versión {actualizacion.version} de Cobranza
+            {instalada ? `\nTienes instalada la ${instalada}` : ''}
             {'\n'}Se descargará e instalará automáticamente.
           </Text>
 
@@ -162,7 +149,7 @@ export default function Actualizador() {
                 <Text style={estilos.btnPrincipalTexto}>Actualizar ahora</Text>
               </TouchableOpacity>
               <TouchableOpacity style={estilos.btnSecundario} onPress={despues}>
-                <Text style={estilos.btnSecundarioTexto}>Después</Text>
+                <Text style={estilos.btnSecundarioTexto}>Después (24 h)</Text>
               </TouchableOpacity>
             </>
           )}

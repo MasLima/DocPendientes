@@ -41,6 +41,7 @@ function apkMasReciente() {
 app.get('/api/version', (req, res) => {
   const apk = apkMasReciente();
   if (!apk) return res.status(404).json({ error: 'APK no encontrado' });
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.json({ version: apk.version, nombre: apk.nombre, tamano: apk.tamano, url: '/api/download/apk' });
 });
 
@@ -52,6 +53,7 @@ app.get('/api/download/apk', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${apk.nombre}"`);
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
   res.setHeader('Content-Length', apk.tamano);
+  res.setHeader('Cache-Control', 'no-store');
   fs.createReadStream(apk.ruta).pipe(res);
 });
 

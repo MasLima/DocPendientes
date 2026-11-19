@@ -1,12 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, Switch, FlatList
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput, Alert, Switch, FlatList, ActivityIndicator
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { useTema } from '../context/ThemeContext';
 import { apiGet, apiPost, apiPut, apiDelete } from '../api/client';
 import ScreenContainer from '../components/ScreenContainer';
+import {
+  getEstadoActualizacion,
+  suscribirActualizacion,
+  verificarActualizacion,
+  versionInstalada
+} from '../services/actualizacion';
 
 export default function ConfiguracionScreen({ navigation }) {
   const { user } = useAuth();
@@ -15,10 +21,6 @@ export default function ConfiguracionScreen({ navigation }) {
   const puede = (p) => (user.permisos || []).includes(p);
   const puedeSync = puede('sync.ejecutar') || puede('sync.ver_log');
   const puedeUsuarios = puede('config.usuarios');
-
-  if (!puedeSync && !puedeUsuarios) {
-    return <View style={[styles.center, { backgroundColor: tema.fondo }]}><Text style={[styles.vacio, { color: tema.textoSuave }]}>No tienes acceso a configuración</Text></View>;
-  }
 
   const opciones = [];
   if (puedeSync) {
@@ -39,6 +41,14 @@ export default function ConfiguracionScreen({ navigation }) {
       pantalla: 'ConfigUsuarios'
     });
   }
+  // Disponible para todos: no requiere permisos
+  opciones.push({
+    clave: 'version',
+    titulo: 'Versión de la app',
+    desc: 'Ver la versión instalada y buscar actualizaciones',
+    icono: '📲',
+    pantalla: 'ConfigVersion'
+  });
 
   return (
     <ScreenContainer>
@@ -63,6 +73,97 @@ export default function ConfiguracionScreen({ navigation }) {
         />
       </View>
     </ScreenContainer>
+  );
+}
+
+// ============ VERSION / ACTUALIZACIONES ============
+function formatearFecha(ts) {
+  if (!ts) return 'nunca';
+  const d = new Date(ts);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function textoEstado(est) {
+  switch (est.estado) {
+    case 'consultando': return 'Consultando el servidor...';
+    case 'al_dia': return 'Tienes la última versión';
+    case 'disponible': return `Hay una versión nueva: ${est.versionServidor}`;
+    case 'ignorada': return `Aviso oculto hasta ${formatearFecha(est.ignoradaHasta)}`;
+    case 'error': return est.error || 'No se pudo consultar';
+    default: return 'Aún no se ha consultado';
+  }
+}
+
+export function ConfigVersionScreen() {
+  const { tema } = useTema();
+  const [est, setEst] = useState(getEstadoActualizacion());
+
+  useEffect(() => {
+    setEst(getEstadoActualizacion());
+    return suscribirActualizacion(setEst);
+  }, []);
+
+  // Al entrar, re-consulta si el ultimo chequeo tiene mas de un minuto.
+  useFocusEffect(
+    useCallback(() => {
+      const e = getEstadoActualizacion();
+      if (e.estado !== 'consultando' && (!e.fecha || Date.now() - e.fecha > 60 * 1000)) {
+        verificarActualizacion();
+      }
+    }, [])
+  );
+
+  const instalada = est.versionActual || versionInstalada() || 'desconocida';
+  const consultando = est.estado === 'consultando';
+
+  const colorEstado = est.estado === 'error'
+    ? '#c0392b'
+    : est.estado === 'disponible'
+      ? '#b9770e'
+      : '#27ae60';
+
+  return (
+    <ScrollView style={[styles.panel, { backgroundColor: tema.fondo }]}>
+      <View style={[styles.versionCard, { backgroundColor: tema.tarjeta, borderColor: tema.borde }]}>
+        <Text style={[styles.versionLabel, { color: tema.textoSuave }]}>Versión instalada</Text>
+        <Text style={[styles.versionNum, { color: tema.primario }]}>{instalada}</Text>
+        <Text style={[styles.versionDet, { color: tema.textoSuave }]}>
+          Última en el servidor: {est.versionServidor || '—'}
+        </Text>
+        <Text style={[styles.versionDet, { color: tema.textoSuave }]}>
+          Última verificación: {formatearFecha(est.fecha)}
+        </Text>
+      </View>
+
+      <View style={styles.estadoFila}>
+        {consultando && <ActivityIndicator size="small" color={tema.celeste} style={{ marginRight: 8 }} />}
+        <Text style={[styles.estadoTexto, { color: colorEstado }]}>{textoEstado(est)}</Text>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.btnPrincipal, { backgroundColor: tema.celeste }, consultando && styles.btnDisabled]}
+        onPress={() => verificarActualizacion({ forzar: true })}
+        disabled={consultando}
+      >
+        <Text style={styles.btnPrincipalText}>
+          {consultando ? 'Buscando...' : 'Buscar actualización'}
+        </Text>
+      </TouchableOpacity>
+
+      {est.estado === 'disponible' && (
+        <Text style={[styles.parrafo, { color: tema.textoSuave }]}>
+          Se abrirá el aviso para descargar e instalar la versión nueva.
+          Si no aparece, toca "Buscar actualización" otra vez.
+        </Text>
+      )}
+
+      <Text style={[styles.parrafo, { color: tema.textoSuave }]}>
+        La app revisa el servidor al abrirse, al volver a primer plano y cada 15 minutos.
+        Al tocar "Después" en el aviso, esa versión se oculta por 24 horas; aquí puedes
+        forzar la búsqueda en cualquier momento.
+      </Text>
+    </ScrollView>
   );
 }
 
@@ -355,6 +456,15 @@ const styles = StyleSheet.create({
   opcionFlecha: { fontSize: 22, color: '#999', marginLeft: 8 },
   panel: { flex: 1, padding: 16 },
   parrafo: { fontSize: 14, color: '#555', lineHeight: 20, marginBottom: 14 },
+  versionCard: {
+    borderRadius: 10, padding: 16, marginBottom: 14,
+    borderWidth: 1, alignItems: 'center'
+  },
+  versionLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  versionNum: { fontSize: 30, fontWeight: '900', marginVertical: 4 },
+  versionDet: { fontSize: 13, marginTop: 2 },
+  estadoFila: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  estadoTexto: { fontSize: 13, fontWeight: '700', flex: 1 },
   btnPrincipal: {
     backgroundColor: '#1a2b4c', borderRadius: 10, paddingVertical: 13,
     alignItems: 'center', marginBottom: 10

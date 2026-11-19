@@ -17,7 +17,7 @@ import IncidenciasClienteScreen from './src/screens/IncidenciasClienteScreen';
 import ElegirClienteScreen from './src/screens/ElegirClienteScreen';
 import NuevaIncidenciaScreen from './src/screens/NuevaIncidenciaScreen';
 import ReportesScreen from './src/screens/ReportesScreen';
-import ConfiguracionScreen, { ConfigSyncScreen, ConfigUsuariosScreen } from './src/screens/ConfiguracionScreen';
+import ConfiguracionScreen, { ConfigSyncScreen, ConfigUsuariosScreen, ConfigVersionScreen } from './src/screens/ConfiguracionScreen';
 import ArticulosScreen from './src/screens/ArticulosScreen';
 import ArticuloDetalleScreen from './src/screens/ArticuloDetalleScreen';
 import WhatsAppScreen from './src/screens/WhatsAppScreen';
@@ -103,6 +103,8 @@ function ConfigStack() {
         options={opcionesHeader('Sincronización')} />
       <Stack.Screen name="ConfigUsuarios" component={ConfigUsuariosScreen}
         options={opcionesHeader('Usuarios')} />
+      <Stack.Screen name="ConfigVersion" component={ConfigVersionScreen}
+        options={opcionesHeader('Versión')} />
     </Stack.Navigator>
   );
 }
@@ -152,9 +154,8 @@ function DrawerMenu() {
   if (puede('reportes.saldos')) opciones.push({ name: 'Reportes', title: 'Reportes', component: ReportesStack });
   if (puede('incidencias.ver')) opciones.push({ name: 'Incidencias', title: 'Incidencias', component: IncidenciasStack });
   if (puede('whatsapp.ver') || puede('clientes.ver')) opciones.push({ name: 'WhatsApp', title: 'WhatsApp', component: WhatsAppStack });
-  if (puede('sync.ejecutar') || puede('config.usuarios')) {
-    opciones.push({ name: 'Configuración', title: 'Configuración', component: ConfigStack });
-  }
+  // Configuración siempre visible: incluye "Versión de la app" (sin permisos)
+  opciones.push({ name: 'Configuración', title: 'Configuración', component: ConfigStack });
 
   if (opciones.length === 0) {
     return (
