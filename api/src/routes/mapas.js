@@ -28,12 +28,11 @@ router.get('/clientes', requirePermiso('mapas.ver'), async (req, res) => {
               v.ter_deno AS vendedor_nombre,
               u.lat, u.lng, u.gps_acc, u.actualizado, u.visitas,
               u.umbral_m,
-              COALESCE(u.umbral_m, cg.umbral_global) AS umbral
+              COALESCE(u.umbral_m, CAST(cg.valor AS UNSIGNED), 300) AS umbral
        FROM cliente_ubicaciones u
        INNER JOIN clientes c ON c.ter_cote = u.ter_cote
        LEFT JOIN vendedores v ON v.ter_cote = c.ter_core
-       CROSS JOIN (SELECT CAST(valor AS UNSIGNED) AS umbral_global
-                   FROM config_gps WHERE clave = 'umbral_global') cg
+       LEFT JOIN config_gps cg ON cg.clave = 'umbral_global'
        WHERE ${where}
        ORDER BY c.ter_deno`,
       params

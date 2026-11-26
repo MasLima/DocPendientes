@@ -34,6 +34,9 @@ export default function MapaScreen() {
   const mapDivRef = useRef(null);
   const mapRef = useRef(null);
   const capaRef = useRef(null);
+  // Se pone en true cuando Leaflet ya se inicializo; sirve para que el
+  // efecto de marcadores vuelva a correr aunque los datos no cambien.
+  const [mapaListo, setMapaListo] = useState(false);
 
   const puedeConfig = (user?.permisos || []).includes('config.ver');
 
@@ -58,20 +61,37 @@ export default function MapaScreen() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  // --- Mapa Leaflet (se crea una vez) ---
+  // --- Mapa Leaflet ---
+  // El contenedor existe recien cuando termino la carga, por eso este
+  // efecto depende de 'cargando'/'error' y no corre solo al montar.
   useEffect(() => {
-    if (!mapRef.current && mapDivRef.current) {
-      const map = L.map(mapDivRef.current, { center: [-12.05, -77.05], zoom: 5 });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
-      }).addTo(map);
-      capaRef.current = L.layerGroup().addTo(map);
-      mapRef.current = map;
+    if (cargando || error) return;
+    if (mapRef.current || !mapDivRef.current) return;
+
+    const map = L.map(mapDivRef.current, {
+      center: [-12.05, -77.05],
+      zoom: 5,
+      zoomControl: true
+    });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    capaRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+    // Con el panel recien montado el contenedor puede medir 0 px:
+    // recalcular para que las tiles se dibujen bien.
+    setTimeout(() => { try { map.invalidateSize(); } catch (e) { /* noop */ } }, 120);
+    setMapaListo(true);
+  }, [cargando, error]);
+
+  // Destruir Leaflet solo al desmontar la pantalla.
+  useEffect(() => () => {
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+      capaRef.current = null;
     }
-    return () => {
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-    };
   }, []);
 
   // --- Marcadores por tab/ filtrado ---
@@ -140,10 +160,16 @@ export default function MapaScreen() {
       const lng = tab === 'clientes' ? c.lng : c.inc_lng;
       if (lat != null && lng != null) puntos.push([Number(lat), Number(lng)]);
     });
-    if (puntos.length > 0) {
+    if (puntos.length === 1) {
+      // Un solo punto: fitBounds haria un zoom exagerado.
+      map.setView(puntos[0], 16);
+    } else if (puntos.length > 1) {
       map.fitBounds(L.latLngBounds(puntos).pad(0.15));
+    } else {
+      // Sin puntos: vista general (Peru).
+      map.setView([-12.05, -77.05], 5);
     }
-  }, [tab, listaBusqueda]);
+  }, [tab, listaBusqueda, mapaListo]);
 
   const enfocar = (c) => {
     const lat = tab === 'clientes' ? c.lat : c.inc_lat;
@@ -247,14 +273,8 @@ export default function MapaScreen() {
         <div className="vacio">Cargando mapas...</div>
       ) : error ? (
         <div className="vacio" style={{ color: 'var(--rojo)' }}>{error}</div>
-      ) : listaBusqueda.length === 0 ? (
-        <div className="vacio">
-          {tab === 'clientes'
-            ? 'Aún no hay clientes con punto confirmado (se guarda desde la app móvil al registrar la primera visita con GPS).'
-            : 'Aún no hay vendedores con visitas registradas con GPS.'}
-        </div>
       ) : (
-        <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
           <div className="card" style={{ width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', maxHeight: 560 }}>
             <input
               className="input"
@@ -263,6 +283,13 @@ export default function MapaScreen() {
               onChange={(e) => setQ(e.target.value)}
               style={{ marginBottom: 8, width: '100%' }}
             />
+            {listaBusqueda.length === 0 ? (
+              <div className="vacio" style={{ fontSize: 13 }}>
+                {tab === 'clientes'
+                  ? 'Aún no hay clientes con punto confirmado (se guarda desde la app móvil al registrar la primera visita con GPS).'
+                  : 'Aún no hay vendedores con visitas registradas con GPS.'}
+              </div>
+            ) : (
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {tab === 'clientes' ? listaBusqueda.map((c) => (
                 <div
@@ -288,11 +315,12 @@ export default function MapaScreen() {
                 </div>
               ))}
             </div>
+            )}
           </div>
           <div
             ref={mapDivRef}
             className="card"
-            style={{ flex: 1, height: 560, padding: 0, overflow: 'hidden', minWidth: 400 }}
+            style={{ flex: 1, height: 560, padding: 0, overflow: 'hidden', minWidth: 320 }}
           />
         </div>
       )}
